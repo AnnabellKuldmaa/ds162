@@ -8,9 +8,9 @@ import numpy as np
 
 # board values
 # 0 = empty
-# 1 = shot
-# 2 = ship
-# 3 = ship hit
+# 1 = shot, but no ship
+# 2 = ship, not shot
+# 3 = ship hit by shot
 
 # clear screen
 def clear_screen():
