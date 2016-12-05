@@ -1,35 +1,37 @@
-import sys
-sys.path.insert(0, "../")
+#!/usr/bin/env python
+import pika
 
-import logging
-import time
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
 
-import snakemq
-import snakemq.link
-import snakemq.packeter
-import snakemq.messaging
-import snakemq.rpc
+channel = connection.channel()
 
-class Game(object):
-    def dummy(self):
-        return "Have fun!"
+channel.queue_declare(queue='rpc_queue')
 
-    @snakemq.rpc.as_signal
-    def mysignal(self):
-        print "Mysignal"
+def fib(n):
+    if n == 0:
+        return 0
+    elif n == 1:
+        return 1
+    else:
+        return fib(n-1) + fib(n-2)
 
-snakemq.init_logging()
-logger = logging.getLogger("snakemq")
-logger.setLevel(logging.DEBUG)
+def on_request(ch, method, props, body):
+    n = int(body)
+    print method
 
-s = snakemq.link.Link()
+    print(" [.] fib(%s)" % n)
+    response = fib(n)
 
-s.add_listener(('127.0.0.1', 7777))
+    ch.basic_publish(exchange='',
+                     routing_key=props.reply_to,
+                     properties=pika.BasicProperties(correlation_id = \
+                                                         props.correlation_id),
+                     body=str(response))
+    ch.basic_ack(delivery_tag = method.delivery_tag)
 
-tr = snakemq.packeter.Packeter(s)
-m = snakemq.messaging.Messaging("srv", "", tr)
-rh = snakemq.messaging.ReceiveHook(m)
-srpc = snakemq.rpc.RpcServer(rh)
-srpc.register_object(Game(), "game1")
+channel.basic_qos(prefetch_count=1)
+channel.basic_consume(on_request, queue='rpc_queue')
 
-s.loop()
+print(" [x] Awaiting RPC requests")
+channel.start_consuming()
