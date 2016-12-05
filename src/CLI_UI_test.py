@@ -41,6 +41,7 @@ def draw_main_board(board):
 
 def draw_tracking_board(board):
     size = len(board)
+    print(size)
     temp = []
 
     temp.append("\\")
@@ -55,6 +56,8 @@ def draw_tracking_board(board):
                 temp.append('.')
             elif board[y][x] == 1:
                 temp.append('o')
+            elif board[y][x] == 2:
+                temp.append('.')
             elif board[y][x] == 3:
                 temp.append('x')
         print "  ".join(temp)
@@ -115,7 +118,8 @@ def test_ships_array():
 if __name__ == "__main__":
 
     draw_main_board(test_ships_array())
-    draw_tracking_board(test_field_array(15))
+    draw_tracking_board(shoot(3,0,test_ships_array()))
+
 
 
 
