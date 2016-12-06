@@ -13,6 +13,9 @@ import numpy as np
 # 3 = ship hit by shot
 
 # clear screen
+
+global board_size
+
 def clear_screen():
     if os.name == 'nt':
         os.system('cls')
@@ -76,7 +79,9 @@ def shoot(x_coord, y_coord, board):
     return board
 
 # show timer
+#TODO timer
 
+# test boards
 def test_field_array(size):
     board = np.zeros((size, size),dtype=np.uint8)
     return board
@@ -115,10 +120,51 @@ def test_ships_array():
 
     return board
 
+def start_loop():
+
+    global board_size
+
+    # TODO login
+
+    hosting = raw_input("Are you hosting a game or joining one? [H]/[J]")
+
+        # Commands:
+        # start - host-only command to start game
+        # shoot x y - shoots at the grid specified by x and y coordinates
+        # join - command for joining a game, args currently unknown
+
+        # host logic
+    if hosting == 'H':
+        board_size = raw_input("Set the size of the playing field: ")
+        command = raw_input("What do you want to do? ")
+        # TODO give host info about players joining the game
+
+        if command == "start":
+            game_loop()
+
+
+        # join logic
+        elif hosting == 'J':
+            # TODO joining game
+            command = raw_input("What do you want to do? ")
+
+
+def game_loop():
+    print "game started"
+    return
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
 
     draw_main_board(test_ships_array())
     draw_tracking_board(shoot(3,0,test_ships_array()))
+    start_loop()
 
 
 
