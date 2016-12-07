@@ -52,8 +52,10 @@ class Client(object):
         return self.message_direct('LOGIN', 'list_servers')
 
     def get_game_list(self, server_key):
-        print 'Sending request to', server_key
         return self.message_direct(server_key, 'list_games')
+    
+    def join_game_server(self, server_key, user_name):
+        return self.message_direct(server_key, construct_message(['join_server', user_name]))
 
     def create_game(self, server_key):
         return self.message_direct(server_key, 'create_game')
@@ -72,5 +74,5 @@ for server, key in response.items():
     print('{}\t{}'.format(server, key))
     
 
-response = client.get_game_list('GAMESERVER1')
+response = client.join_game_server('GAMESERVER1', 'markus')
 print response

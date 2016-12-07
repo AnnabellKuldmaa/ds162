@@ -1,12 +1,14 @@
 import pika
 import uuid
 import json
+from common import construct_message, decode_message
 
 class GameServer:
 	
 	def __init__(self):
 		
 		self.games = {}
+		self.online_clients = []
 		self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='127.0.0.1'))
 		self.channel = self.connection.channel()
 		self.channel.exchange_declare(exchange='main_exch', type='direct')
@@ -35,9 +37,17 @@ class GameServer:
 		
 	
 	def on_request(self, ch, method, props, body):
+		body = decode_message(body)
 		print 'Received request', body
-		if body == 'list_games':
+		if body[0] == 'list_games':
 			response = json.dumps(self.games, ensure_ascii=False)
+		elif body[0]=='join_server':
+			if (body[1]) not in self.online_clients:
+				self.online_clients.append(body[1])
+				response = json.dumps('OK', ensure_ascii=False)
+			else: response = json.dumps('NOK', ensure_ascii=False)
+		elif body[0]== 'create_game':
+				self.create_game()
 		else:
 			response = 'unknown_request'
 	
@@ -66,8 +76,6 @@ class GameServer:
 		while self.response is None:
 			self.connection.process_data_events()
 		return self.response
-
-
 
 	def create_game(self):
 		pass
