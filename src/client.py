@@ -26,7 +26,7 @@ class Client(object):
         """
         if self.corr_id == props.correlation_id:
             self.response = body
-            print('Response received.')
+            print('Response received', body)
 
     def message_direct(self, key, body):
         """
@@ -52,6 +52,7 @@ class Client(object):
         return self.message_direct('LOGIN', 'list_servers')
 
     def get_game_list(self, server_key):
+        print 'Sending request to', server_key
         return self.message_direct(server_key, 'list_games')
 
     def create_game(self, server_key):
@@ -69,3 +70,7 @@ response = json.loads(client.get_game_servers())
 print('NAME\tKEY')
 for server, key in response.items():
     print('{}\t{}'.format(server, key))
+    
+
+response = client.get_game_list('GAMESERVER1')
+print response

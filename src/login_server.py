@@ -16,14 +16,14 @@ gameservers = {}
 
 
 def on_request(ch, method, props, body):
-	print('Received request')
+	print('Received request', body)
 
 	if body == 'list_servers':
 		response = json.dumps(gameservers, ensure_ascii=False)
 	elif body == 'server_online':
 		server_nr = len(gameservers) + 1
 		gameservers['Server%d' % server_nr] = 'GAMESERVER%d' % server_nr
-		response = 'server_in_list'
+		response = server_nr #'server_in_list'
 	else:
 		response = 'unknown_request'
 

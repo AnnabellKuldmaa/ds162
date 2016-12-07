@@ -2,6 +2,8 @@ import pika
 import uuid
 
 class GameServer:
+	
+	games = {}
 
 	def __init__(self):
 
@@ -15,15 +17,34 @@ class GameServer:
 		self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue)
 
 		server_nr = self.notify_login_server()
-
+		
+		self.channel.queue_declare(queue='incoming_queue')
 		self.channel.queue_bind(exchange='main_exch',
 				   queue='incoming_queue',
-				   routing_key='GAMESERVER_' + str(server_nr))
+				   routing_key='GAMESERVER' + str(server_nr))
 
 		print('Gameserver nr.{} created.'.format(server_nr))
+		self.channel.start_consuming()
 
 	def on_response(self, ch, method, props, body):
-		print('Received response:', body)
+		if self.corr_id == props.correlation_id:
+			self.response = body
+			print('Received response:', body)
+		
+	
+	def on_request(ch, method, props, body):
+		print 'Received request'
+		if body == 'list_games':
+			response = json.dumps(games, ensure_ascii=False)
+		else:
+			response = 'unknown_request'
+	
+		ch.basic_publish(exchange='main_exch',
+						 routing_key=props.reply_to,
+						 properties=pika.BasicProperties(correlation_id= \
+															 props.correlation_id),
+						 body=str(response))
+		ch.basic_ack(delivery_tag=method.delivery_tag)
 
 	def notify_login_server(self):
 		"""
@@ -43,7 +64,6 @@ class GameServer:
 		while self.response is None:
 			self.connection.process_data_events()
 		return self.response
-
 
 
 
