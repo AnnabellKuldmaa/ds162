@@ -1,12 +1,14 @@
 import pika
 import uuid
 import json
+from common import construct_message, decode_message
 
 
 class GameServer:
     def __init__(self):
 
         self.games = {}
+        self.online_clients = []
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='127.0.0.1'))
         self.channel = self.connection.channel()
         self.channel.exchange_declare(exchange='main_exch', type='direct')
@@ -16,14 +18,13 @@ class GameServer:
         self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue)
 
         server_nr = self.notify_login_server()
-        self.r_key = 'GAMESERVER' + str(server_nr)
 
         self.channel.queue_declare(queue='incoming_queue')
         self.channel.queue_bind(exchange='main_exch',
                                 queue='incoming_queue',
-                                routing_key=self.r_key)
+                                routing_key='GAMESERVER' + str(server_nr))
 
-        print('Server {} created.'.format(self.r_key))
+        print('Gameserver nr.{} created.'.format(server_nr))
 
         self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(self.on_request, queue='incoming_queue')
@@ -35,9 +36,18 @@ class GameServer:
             print('Received response:', body)
 
     def on_request(self, ch, method, props, body):
+        body = decode_message(body)
         print 'Received request', body
-        if body == 'list_games':
+        if body[0] == 'list_games':
             response = json.dumps(self.games, ensure_ascii=False)
+        elif body[0] == 'join_server':
+            if (body[1]) not in self.online_clients:
+                self.online_clients.append(body[1])
+                response = json.dumps('OK', ensure_ascii=False)
+            else:
+                response = json.dumps('NOK', ensure_ascii=False)
+        elif body[0] == 'create_game':
+            self.create_game()
         else:
             response = 'unknown_request'
 
@@ -67,17 +77,13 @@ class GameServer:
             self.connection.process_data_events()
         return self.response
 
+
     def create_game(self):
         pass
+
 
     def remove_game(self):
         pass
 
 
 game_server = GameServer()
-
-
-class Game():
-
-    def __init__(self):
-        pass
