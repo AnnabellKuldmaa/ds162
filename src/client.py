@@ -2,7 +2,7 @@
 import pika
 import uuid
 import json
-from common import construct_message, decode_message
+from common import construct_message, decode_message, LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER
 
 class Client(object):
     def __init__(self):
@@ -13,7 +13,7 @@ class Client(object):
         self.channel.exchange_declare(exchange='main_exch', type='direct')
         result = self.channel.queue_declare(exclusive=True)  # declare queue
         self.callback_queue = result.method.queue  # access queue declared
-        self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue) # set listen on callback queue
+        self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue)  # set listen on callback queue
 
     def on_response(self, ch, method, props, body):
         """
@@ -50,20 +50,28 @@ class Client(object):
         return self.response
 
     def get_game_servers(self):
-        return self.message_direct('LOGIN', 'list_servers')
+        return self.message_direct('LOGIN', LIST_SERVERS)
 
     def get_game_list(self, server_key):
-        return self.message_direct(server_key, 'list_games')
+        return self.message_direct(server_key, LIST_GAMES)
     
     def join_game_server(self, server_key, user_name):
-        return self.message_direct(server_key, construct_message(['join_server', user_name]))
+        return self.message_direct(server_key, construct_message([JOIN_SERVER, user_name]))
 
-    def create_game(self, server_key):
-        return self.message_direct(server_key, 'create_game')
+    def create_game(self, server_key, board_size):
+        return self.message_direct(server_key, construct_message([CREATE_GAME, board_size]))
 
     def join_game(self, server_key, game_id):
-        return self.message_direct(server_key, construct_message(['join_game', game_id]))
+        return self.message_direct(server_key, construct_message([JOIN_GAME, game_id]))
+    
+    def shoot(self, game_key, x, y):
+        return self.message_direct(game_key, construct_message([SHOOT, x, y]))
+    
+    def leave_game(self, game_key):
+        return self.message_direct(game_key, LEAVE_GAME)
 
+    def remove_user(self, game_key, user_name):
+        return self.message_direct(game_key, construct_message([REMOVE_USER, user_name]))
 
 # Code for testing the client
 client = Client()
@@ -75,7 +83,7 @@ for server, r_key in response.items():
     print('{}\t{}'.format(server, r_key))
     
 
-response = client.join_game_server(str(r_key), 'markus')
+response = client.join_game_server(r_key, 'markus')
 print('Available games')
 for game_name, game_info in json.loads(response):
     print game_name

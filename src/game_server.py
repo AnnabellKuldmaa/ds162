@@ -1,8 +1,8 @@
 import pika
 import uuid
 import json
-from common import construct_message, decode_message
-
+from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
+    JOIN_GAME, SERVER_ONLINE
 
 class GameServer:
     def __init__(self):
@@ -42,19 +42,18 @@ class GameServer:
     def on_request(self, ch, method, props, body):
         body = decode_message(body)
         print 'Received request', body
-        if body[0] == 'list_games':
+        if body[0] == LIST_GAMES:
             response = json.dumps(self.games, ensure_ascii=False)
-        elif body[0] == 'join_server':
-            # Tests if username in use
+        elif body[0] == JOIN_SERVER :
             if (body[1]) not in self.online_clients:
                 self.online_clients.append(body[1])
-                response = json.dumps(games, ensure_ascii=False)
+                response = json.dumps(self.games, ensure_ascii=False)
             else:
-                response = json.dumps('username_in_use', ensure_ascii=False)
-        elif body[0] == 'create_game':
+                response = json.dumps('NOK', ensure_ascii=False)
+        elif body[0] == CREATE_GAME:
             self.create_game()
         else:
-            response = 'unknown_request'
+            response = UNKNOWN_REQUEST
 
         ch.basic_publish(exchange='',
                          routing_key=props.reply_to,
@@ -76,7 +75,7 @@ class GameServer:
                                        reply_to=self.callback_queue,
                                        correlation_id=self.corr_id,
                                    ),
-                                   body='server_online')
+                                   body=SERVER_ONLINE)
 
         while self.response is None:
             self.connection.process_data_events()
