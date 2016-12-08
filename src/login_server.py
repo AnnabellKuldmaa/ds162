@@ -3,7 +3,7 @@ import pika
 import json
 
 connection = pika.BlockingConnection(pika.ConnectionParameters(
-	host='127.0.0.1'))
+    host='127.0.0.1'))
 
 channel = connection.channel()
 
@@ -16,23 +16,23 @@ gameservers = {}
 
 
 def on_request(ch, method, props, body):
-	print('Received request', body)
+    print('Received request', body)
 
-	if body == 'list_servers':
-		response = json.dumps(gameservers, ensure_ascii=False)
-	elif body == 'server_online':
-		server_nr = len(gameservers) + 1
-		gameservers['Server%d' % server_nr] = 'GAMESERVER%d' % server_nr
-		response = server_nr #'server_in_list'
-	else:
-		response = 'unknown_request'
+    if body == 'list_servers':
+        response = json.dumps(gameservers, ensure_ascii=False)
+    elif body == 'server_online':
+        server_nr = len(gameservers) + 1
+        gameservers['Server%d' % server_nr] = 'GAMESERVER%d' % server_nr
+        response = server_nr  # 'server_in_list'
+    else:
+        response = 'unknown_request'
 
-	ch.basic_publish(exchange='',
-					 routing_key=props.reply_to,
-					 properties=pika.BasicProperties(correlation_id= \
-														 props.correlation_id),
-					 body=str(response))
-	ch.basic_ack(delivery_tag=method.delivery_tag)
+    ch.basic_publish(exchange='',
+                     routing_key=props.reply_to,
+                     properties=pika.BasicProperties(correlation_id= \
+                                                         props.correlation_id),
+                     body=str(response))
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
 channel.basic_qos(prefetch_count=1)
