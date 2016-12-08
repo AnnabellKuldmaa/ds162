@@ -15,6 +15,12 @@ class Client(object):
         self.callback_queue = result.method.queue  # access queue declared
         self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue)  # set listen on callback queue
 
+        self.incoming_queue = self.channel.queue_declare(exclusive=True) # declare incoming message queue
+        self.incoming_queue = self.incoming_queue.method.queue
+
+        self.channel.basic_consume(self.on_info, queue=self.incoming_queue) # listener on incoming message queue
+        self.user_name = None  #TODO > Maybe we should set it at init
+
     def on_response(self, ch, method, props, body):
         """
         Default response callback. Checks if message id matches and stores message.
@@ -27,6 +33,17 @@ class Client(object):
         if self.corr_id == props.correlation_id:
             self.response = body
             print('Response received', body)
+
+    def on_info(self, ch, method, props, body):
+        """
+        Handles information from game.
+        :param ch:
+        :param method:
+        :param props:
+        :param body:
+        :return:
+        """
+        print('Message from game:', body)
 
     def message_direct(self, key, body):
         """
@@ -56,13 +73,36 @@ class Client(object):
         return self.message_direct(server_key, LIST_GAMES)
     
     def join_game_server(self, server_key, user_name):
+        self.user_name = user_name
         return self.message_direct(server_key, construct_message([JOIN_SERVER, user_name]))
 
-    def create_game(self, server_key, board_size):
-        return self.message_direct(server_key, construct_message([CREATE_GAME, board_size]))
+    def create_game(self, user_name, server_key, board_size):
+        """
+        Sends params for game creation to game server
+        :param user_name: Necessary for server to know who's creating the game
+        :param server_key: Game_server where the game is created
+        :param board_size: gameboard size
+        :return: response
+        """
+        return self.message_direct(server_key, construct_message([CREATE_GAME, user_name, board_size]))
 
     def join_game(self, server_key, game_id):
-        return self.message_direct(server_key, construct_message([JOIN_GAME, game_id]))
+        """
+        Sends join request to game at server. Gets exchange names, makes queues and binds to them.
+        :param server_key: Game server to connect to
+        :param user_name: Cuurent user's name
+        :param game_id: Game name to connect to
+        :return:
+        """
+        response = self.message_direct(server_key, construct_message([JOIN_GAME, self.user_name, game_id]))
+        response = decode_message(response)
+        game_exchange = response[0]
+        print(game_exchange)
+        self.channel.queue_bind(exchange=game_exchange,
+                        queue=self.incoming_queue,
+                        routing_key=self.user_name)
+        print('Joined to gameserver. Incoming queue registered to game exchange.')
+        return
     
     def shoot(self, game_key, x, y):
         return self.message_direct(game_key, construct_message([SHOOT, x, y]))
@@ -83,7 +123,17 @@ for server, r_key in response.items():
     print('{}\t{}'.format(server, r_key))
     
 
-response = client.join_game_server(r_key, 'markus')
+user_name = 'markus'
+response = json.loads(client.join_game_server(r_key, user_name))
+if response == 'NOK':
+    response = client.create_game(user_name, r_key, 10)
+
+avail_games = json.loads(client.message_direct(r_key, LIST_GAMES))
 print('Available games')
-for game_name, game_info in json.loads(response):
+for game_name in avail_games:
     print game_name
+
+if len(avail_games) > 0:
+    response = client.join_game(r_key, avail_games[0])
+
+

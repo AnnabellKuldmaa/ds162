@@ -3,12 +3,15 @@ import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
     JOIN_GAME, SERVER_ONLINE
+from player import Player
+from game import Game
+
 
 class GameServer:
     def __init__(self):
 
         self.games = {}
-        self.online_clients = []
+        self.online_clients = {}
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host='127.0.0.1'))
         self.channel = self.connection.channel()
         self.channel.exchange_declare(exchange='main_exch', type='direct')
@@ -43,15 +46,21 @@ class GameServer:
         body = decode_message(body)
         print 'Received request', body
         if body[0] == LIST_GAMES:
-            response = json.dumps(self.games, ensure_ascii=False)
+            response = json.dumps(self.games.keys(), ensure_ascii=False)
         elif body[0] == JOIN_SERVER :
             if (body[1]) not in self.online_clients:
-                self.online_clients.append(body[1])
-                response = json.dumps(self.games, ensure_ascii=False)
+                # Create a player instance with the name
+                player = Player(body[1])
+                self.online_clients[body[1]] = player
+                response = json.dumps(self.games.keys(), ensure_ascii=False)
             else:
                 response = json.dumps('NOK', ensure_ascii=False)
         elif body[0] == CREATE_GAME:
-            self.create_game()
+            self.create_game(body[1], body[2])
+            response = json.dumps('Game_created', ensure_ascii=False)
+        elif body[0] == JOIN_GAME:
+            game_exchange = self.join_game(body[1], body[2])
+            response = game_exchange
         else:
             response = UNKNOWN_REQUEST
 
@@ -82,12 +91,36 @@ class GameServer:
         return self.response
 
 
-    def create_game(self):
-        pass
+    def create_game(self, owner, size):
+        gamenr = len(self.games) + 1  # TODO > number may be in use if a game from the middle ands and is deleted
+        game_name = '{}_{}'.format(self.r_key, gamenr)
+        owner = self.online_clients[owner]
+        spec_exchange, game_exchange = self.create_game_exchanges(game_name)
+        game = Game(owner, size, spec_exchange, game_exchange)
+        self.games['GAME_%d' % gamenr] = game
+
+    def create_game_exchanges(self, game_name):
+        """
+        Creates exchanges for a specific game at creation. Passes back names for binding by player.
+        :param game_name: Name of the game as provided by the user
+        :return: Exchange names
+        """
+        game_exchange = '{}_main'.format(game_name)
+        self.channel.exchange_declare(exchange=game_exchange, type='direct')
+        spec_exchange = '{}_spec'.format(game_name)
+        self.channel.exchange_declare(exchange=spec_exchange, type='fanout')
+        return spec_exchange, game_exchange
+
+    def remove_game(self, gamenr):
+        del self.games['GAME_%d' % gamenr]
 
 
-    def remove_game(self):
-        pass
+    def join_game(self, user_name, game_name):
+        player = self.online_clients[user_name]
+        game = self.games[game_name]
+        game_exchange = game.join(player)
+        return game_exchange
+
 
 
 game_server = GameServer()

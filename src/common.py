@@ -22,7 +22,7 @@ NOT_SHOT = '4'
 SHIP_SUNK = '5'
 
 def construct_message(args):
-	return MSG_SEP.join(args)
+	return MSG_SEP.join(map(str,args))
 
 def decode_message(message):
 	return message.split(MSG_SEP)

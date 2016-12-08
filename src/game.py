@@ -2,7 +2,7 @@ from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT , NOT_SHOT, S
 from player import Player
 
 class Game:
-    def __init__(self, owner, board_size):
+    def __init__(self, owner, board_size, spec_exchange, game_exchange):
         """
         @param owner: owner of the game
         @return ?
@@ -10,14 +10,17 @@ class Game:
         self.player_list = [owner]
         self.owner = owner
         self.board_size = board_size
+        self.spec_exchange = spec_exchange
+        self.game_exchange = game_exchange
 
-    def join(self, user_name):
+    def join(self, user):
         """
-        @param user_name: adds player with user_name to game
+        @param user_name: adds player to game
         @return 
         @TODO: must notify other players
         """
-        self.player_list.append(Player(user_name))
+        self.player_list.append(user)
+        return self.game_exchange
         
 
     def create_boards(self):
@@ -63,5 +66,5 @@ class Game:
         """
         return
     
-pl = Player('tere')
-game = Game(pl, 7)
+#pl = Player('tere')
+#game = Game(pl, 7)
