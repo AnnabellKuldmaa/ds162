@@ -10,7 +10,7 @@ class Client(object):
                 host='127.0.0.1'))
 
         self.channel = self.connection.channel()
-
+        self.channel.exchange_declare(exchange='main_exch', type='direct')
         result = self.channel.queue_declare(exclusive=True)  # declare queue
         self.callback_queue = result.method.queue  # access queue declared
         self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue) # set listen on callback queue
@@ -37,6 +37,7 @@ class Client(object):
         """
         self.response = None
         self.corr_id = str(uuid.uuid4())
+        print('Sending message to', key)
         self.channel.basic_publish(exchange='main_exch',
                                    routing_key=key,
                                    properties=pika.BasicProperties(
@@ -70,9 +71,11 @@ client = Client()
 print("Requesting gameservers.")
 response = json.loads(client.get_game_servers())
 print('NAME\tKEY')
-for server, key in response.items():
-    print('{}\t{}'.format(server, key))
+for server, r_key in response.items():
+    print('{}\t{}'.format(server, r_key))
     
 
-response = client.join_game_server('GAMESERVER1', 'markus')
-print response
+response = client.join_game_server(str(r_key), 'markus')
+print('Available games')
+for game_name, game_info in json.loads(response):
+    print game_name

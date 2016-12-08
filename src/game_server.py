@@ -13,21 +13,25 @@ class GameServer:
         self.channel = self.connection.channel()
         self.channel.exchange_declare(exchange='main_exch', type='direct')
 
-        self.result = self.channel.queue_declare(exclusive=True)  # declare queue
-        self.callback_queue = self.result.method.queue  # access queue declared
-        self.channel.basic_consume(self.on_response, no_ack=True, queue=self.callback_queue)
+        self.result = self.channel.queue_declare(exclusive=True)  # declare callback queue
+        self.callback_queue = self.result.method.queue
+        self.channel.basic_consume(self.on_response,
+                                   no_ack=True,
+                                   queue=self.callback_queue)  # listener on callback
 
         server_nr = self.notify_login_server()
+        self.r_key = 'GAMESERVER' + str(server_nr)
 
-        self.channel.queue_declare(queue='incoming_queue')
+        self.incoming_queue = self.channel.queue_declare(exclusive=True) # declare incoming message queue
+        self.incoming_queue = self.incoming_queue.method.queue
         self.channel.queue_bind(exchange='main_exch',
-                                queue='incoming_queue',
-                                routing_key='GAMESERVER' + str(server_nr))
+                                queue=self.incoming_queue,
+                                routing_key=self.r_key)  # subscribe to server key
 
-        print('Gameserver nr.{} created.'.format(server_nr))
+        print('Gameserver {} created.'.format(self.r_key))
 
         self.channel.basic_qos(prefetch_count=1)
-        self.channel.basic_consume(self.on_request, queue='incoming_queue')
+        self.channel.basic_consume(self.on_request, queue=self.incoming_queue) # listener on incoming message queue
         self.channel.start_consuming()
 
     def on_response(self, ch, method, props, body):
@@ -41,11 +45,12 @@ class GameServer:
         if body[0] == 'list_games':
             response = json.dumps(self.games, ensure_ascii=False)
         elif body[0] == 'join_server':
+            # Tests if username in use
             if (body[1]) not in self.online_clients:
                 self.online_clients.append(body[1])
-                response = json.dumps('OK', ensure_ascii=False)
+                response = json.dumps(games, ensure_ascii=False)
             else:
-                response = json.dumps('NOK', ensure_ascii=False)
+                response = json.dumps('username_in_use', ensure_ascii=False)
         elif body[0] == 'create_game':
             self.create_game()
         else:
