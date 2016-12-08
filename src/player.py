@@ -1,4 +1,4 @@
-class Player(object):
+class Player():
     def __init__(self, user_name, owner = False):
         self.main_board = []
         self.tracking_board  = []
