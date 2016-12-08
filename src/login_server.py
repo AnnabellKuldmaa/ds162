@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import pika
 import json
+from common import construct_message, decode_message, LIST_SERVERS, SERVER_ONLINE, UNKNOWN_REQUEST
+
 
 connection = pika.BlockingConnection(pika.ConnectionParameters(
     host='127.0.0.1'))
@@ -18,14 +20,14 @@ gameservers = {}
 def on_request(ch, method, props, body):
     print('Received request', body)
 
-    if body == 'list_servers':
+    if body == LIST_SERVERS:
         response = json.dumps(gameservers, ensure_ascii=False)
-    elif body == 'server_online':
+    elif body == SERVER_ONLINE:
         server_nr = len(gameservers) + 1
         gameservers['Server%d' % server_nr] = 'GAMESERVER%d' % server_nr
-        response = server_nr  # 'server_in_list'
+        response =server_nr  # 'server_in_list'
     else:
-        response = 'unknown_request'
+        response = UNKNOWN_REQUEST
 
     ch.basic_publish(exchange='',
                      routing_key=props.reply_to,

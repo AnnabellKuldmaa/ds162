@@ -1,8 +1,7 @@
 import pika
 import uuid
 import json
-from common import construct_message, decode_message
-
+from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, JOIN_GAME
 
 class GameServer:
     def __init__(self):
@@ -38,18 +37,18 @@ class GameServer:
     def on_request(self, ch, method, props, body):
         body = decode_message(body)
         print 'Received request', body
-        if body[0] == 'list_games':
+        if body[0] == LIST_GAMES:
             response = json.dumps(self.games, ensure_ascii=False)
-        elif body[0] == 'join_server':
+        elif body[0] == JOIN_SERVER :
             if (body[1]) not in self.online_clients:
                 self.online_clients.append(body[1])
                 response = json.dumps('OK', ensure_ascii=False)
             else:
                 response = json.dumps('NOK', ensure_ascii=False)
-        elif body[0] == 'create_game':
+        elif body[0] == CREATE_GAME:
             self.create_game()
         else:
-            response = 'unknown_request'
+            response = UNKNOWN_REQUEST
 
         ch.basic_publish(exchange='',
                          routing_key=props.reply_to,
