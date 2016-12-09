@@ -2,14 +2,32 @@ from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT , NOT_SHOT, S
 from player import Player
 from random import randint
 
+class Ship():
+    def __init__(self, x, y, is_vertical, size, is_sunk=False):
+        """
+        @param x: x coordinate
+        @param y: y coordinate
+        @param is_vertical: boolean
+        @param size: size of ship ([1, 5]
+        """
+        self.x = x
+        self.y = y
+        self.is_vertical = is_vertical
+        self.size = size
+        self.is_sunk = False
+
 class Game:
     def __init__(self, owner, board_size, spec_exchange, game_exchange):
         """
         @param owner: owner of the game
+        @param board_size: board_size
         @return ?
         """
         self.player_list = [owner]
         self.owner = owner
+        #Board size cannot be less than 10
+        if board_size < 10:
+            board_size = 10
         self.board_size = board_size
         self.spec_exchange = spec_exchange
         self.game_exchange = game_exchange
@@ -17,44 +35,70 @@ class Game:
     def join(self, user):
         """
         @param user_name: adds player to game
-        @return 
+        @return exchange
         @TODO: must notify other players
         """
         self.player_list.append(user)
         return self.game_exchange
-        
 
     def create_boards(self):
         """
-        Creates main board for each player
+        Creates main board for each player and positions ships
         """
         
         for player in self.player_list:
-            player.self.main_board = generate_board()
-    
-    def shoot(self, player, x, y):
+            board = []
+            for i in range(self.board_size):
+                board.append([NOT_SHOT] * self.board_size)
+            player.tracking_board = board
+            player.main_board, player.ships = self.create_board()
+            
+            
+
+    def shoot(self, shooter, x, y):
         """
-        @param player: user_name of player who is shooting
+        @param shooter: user_name of player who is shooting
         @param x: x coordinate
         @param y: y coordinate
-        @TODO: must notify other players
+        @TODO: must notify shooter, other players if sunk, if hit only suffering
+        or we update everyone's tracking boards,
+        should other people see the hit of player, currently not
         """
         hits = []
+        sunk_ships = []
         
-        if x >self.board_size or y > self.board_size:
-            # TODO. out of the board
+        if x > self.board_size or y > self.board_size:
+            # Out of the board, do nothing
             return
         for player in self.player_list:
+            print player.user_name
             # there is a hit
-            if player.self.main_board[x][y] in [SHIP_NOT_SHOT, SHIP_SHOT]:
-                # Need to notify suffering player
-                player.self.main_board[x][y] = SHIP_SHOT
-                hits.append(player.self.user_name)
+            if player.user_name != shooter:
+                if player.main_board[y][x] in [SHIP_NOT_SHOT, SHIP_SHOT]:
+                    # Updating board
+                    print 'Hit!'
+                    player.main_board[y][x] = SHIP_SHOT
+                    # Check if ship is sunk
+                    sunk = self.is_ship_sunk(player)
+                    if sunk is not None:
+                        print 'Sunked the ship'
+                        sunk_ships.append([sunk, player])
+                    hits.append(player.user_name)
+        print 'Hits', hits
         if len(hits) > 0:
-            player.self.tracking_board[x][y] = SHIP_SHOT
+            if len(sunk_ships)>0:
+                #Update all players' tracking board
+                self.update_boards(sunk_ships)
+        #Updating shooter's board
+            else:
+                for player in self.player_list:
+                    if player.user_name == shooter:
+                        player.tracking_board[y][x] = SHIP_SHOT
         else:
-            player.self.tracking_board[x][y] = NO_SHIP_SHOT
-            
+             for player in self.player_list:
+                if player.user_name == shooter:
+                        player.tracking_board[y][x] = NO_SHIP_SHOT
+
     def create_board(self):
         """
         # Size
@@ -63,59 +107,147 @@ class Game:
         1  3
         2  2
         2  1
-        @return: returns ships on board of size self.board_size
+        @return: returns ships on board of size self.board_size 
+        and list of positioned ships
         """
         board = []
         for i in range(self.board_size):
-            board.append([0]*self.board_size)
-        ships = [[5,1], [4, 1],[3,1] ,[2,2], [1,2]]
+            board.append([NO_SHIP] * self.board_size)
+        ships = [[5, 1], [4, 1], [3, 1] , [2, 2], [1, 2]]
+        positioned_ships = []
         for s in ships:
             size = s[0]
             total = s[1]
             positioned = 0
             for i in range(total):
-                print 'size ' + str(size )
-                while positioned< total:
+                while positioned < total:
                     no_ship_yet = True
-                    is_vertical = randint(0,1)
-                    #vertical
+                    is_vertical = randint(0, 1)
+                    # vertical
                     if is_vertical:
-                        x = randint(0,self.board_size-1)
-                        y = randint(0, self.board_size-size-1)
-                        #must check that there is no ship
-                        for i in range(size):
-                            if board[x][y+i] == 1:
+                        x = randint(0, self.board_size - 1)
+                        y = randint(0, self.board_size - size - 1)
+                        # must check that there is no ship
+                        for j in range(size):
+                            if board[y + j][x] == 1:
                                 no_ship_yet = False
                         if no_ship_yet:
-                            for i in range(size):
-                                board[x][y+i] = 1
-                                print board
-                                positioned = positioned +1
-                            
+                            for j in range(size):
+                                board[y + j][x] = 1
+                            positioned_ships.append(Ship(x, y, is_vertical, size))
+                            positioned = positioned + 1
                     else:
-                        #horisontal
-                        x = randint(0,self.board_size-size-1)
-                        y = randint(0, self.board_size-1)
-                        #must check that there is no ship
-                        for i in range(size):
-                            if board[x+i][y] == 1:
+                        # horisontal
+                        x = randint(0, self.board_size - size - 1)
+                        y = randint(0, self.board_size - 1)
+                        # must check that there is no ship
+                        for j in range(size):
+                            if board[y][x + j] == 1:
                                 no_ship_yet = False
                         if no_ship_yet:
-                            for i in range(size):
-                                board[x+i][y] = 1
-                                positioned = positioned +1
-        return board
-    
-    def is_ship_sunk(self, board):
+                            for j in range(size):
+                                board[y][x + j] = 1
+                            positioned_ships.append(Ship(x, y, is_vertical, size))
+                            positioned = positioned + 1
+        return board, positioned_ships
+
+    def is_ship_sunk(self, player):
         """
-        @TODO: check is ship is sunk
-        must notify all players and set tracking_board value to SHIP_SUNK
+        Check there is a ship which is sunk
+         @param: player whose not yet sunk ships will be checked
+         @return: returns a sunk ship, otherwise None
         """
-        return
-    
+        for ship in player.ships:
+            if not ship.is_sunk :
+                sunked = True
+                for i in range(ship.size):
+                    if ship.is_vertical:
+                        if player.main_board[ship.y + i][ship.x] == SHIP_NOT_SHOT:
+                            sunked = False
+                            break
+                    else:
+                        if player.main_board[ship.y][ship.x + i ] == SHIP_NOT_SHOT:
+                            sunked = False
+                            break
+                if sunked:
+                    for i in range(ship.size):
+                        if ship.is_vertical:
+                            player.main_board[ship.y + i][ship.x] = SHIP_SUNK
+                        else:
+                            player.main_board[ship.y][ship.x + i] = SHIP_SUNK
+                    ship.is_sunk = True
+                    return ship
+
     def is_game_over(self):
-        return
-    
-#pl = Player('tere')
-#game = Game(pl, 10, 1, 1)
-#print (game.create_board())
+        """
+        @return: returns True if there exists a player whose all ships are sunk
+        """
+        for player in self.player_list:
+            all_sunk = True
+            for ship in player.ships:
+                if not ship.is_sunk:
+                    all_sunk = False
+            if all_sunk:
+               return True
+        return False
+
+    def update_boards(self,sunk):
+        """
+        Updates players' tracking boards if ship is sunk (does not update for owner himself)
+        @param: sunk list of sunk ships and ship owner [ship, owner]
+        """
+        for s in sunk:
+            sunk_ship = s[0]
+            ship_owner = s[1]
+            for player in self.player_list:
+                if player != ship_owner:
+                    for i in range(sunk_ship.size):
+                        if sunk_ship.is_vertical:
+                            player.tracking_board[sunk_ship.y + i][sunk_ship.x] = SHIP_SUNK
+                        else:
+                            player.tracking_board[sunk_ship.y][sunk_ship.x + i] = SHIP_SUNK
+
+    def leave_game(self, user_name):
+        """
+        Player with user_name leaves: must remove all ships
+        @param: user_name is username of leaving player
+        @TODO: must remove all ships, but what about already shot ships?!?
+        """
+        for player in self.player_list:
+            if player.user_name == user_name:
+                player_list.remove(player)
+                #Set new owner
+                if player.is_owner:
+                    new_owner  = self.player_list[randint(0, len(self.player_list)-1)]
+                    self.owner = new_owner
+                    new_owner.is_owner = True
+
+#For testing purposes
+pl1 = Player('markus')
+pl2 = Player('markus2')
+game = Game(pl1, 10, None, None)
+game.join(pl2)
+
+game.create_boards()
+
+print 'Player 1'
+for line in pl1.main_board:
+    print line
+print 'Player 2'
+for line in pl2.main_board:
+    print line
+while True:
+    x = raw_input('X coordinate')
+    y = raw_input('Y coordinate')
+    game.shoot('markus', int(x), int(y))
+    print 'Player 1 shot'+ str(x) + str(y)
+    print 'Player 1 tracking'
+    for line in pl1.tracking_board:
+        print line
+    print 'Player 2'
+    for line in pl2.main_board:
+        print line
+
+
+
+

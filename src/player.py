@@ -5,3 +5,4 @@ class Player():
         self.is_online = True
         self.is_owner = owner
         self.user_name = user_name
+        self.ships = []
