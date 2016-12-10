@@ -21,7 +21,6 @@ class Game:
         """
         @param owner: owner of the game
         @param board_size: board_size
-        @return ?
         """
         self.player_list = [owner]
         self.owner = owner
@@ -36,14 +35,14 @@ class Game:
         """
         @param user_name: adds player to game
         @return exchange
-        @TODO: must notify other players
+        @TODO: must notify owner players
         """
         self.player_list.append(user)
         return self.game_exchange
 
-    def create_boards(self):
+    def create_all_boards(self):
         """
-        Creates main board for each player and positions ships
+        Creates a main board for each player and positions ships
         """
         
         for player in self.player_list:
@@ -52,8 +51,6 @@ class Game:
                 board.append([NOT_SHOT] * self.board_size)
             player.tracking_board = board
             player.main_board, player.ships = self.create_board()
-            
-            
 
     def shoot(self, shooter, x, y):
         """
@@ -178,19 +175,6 @@ class Game:
                     ship.is_sunk = True
                     return ship
 
-    def is_game_over(self):
-        """
-        @return: returns True if there exists a player whose all ships are sunk
-        """
-        for player in self.player_list:
-            all_sunk = True
-            for ship in player.ships:
-                if not ship.is_sunk:
-                    all_sunk = False
-            if all_sunk:
-               return True
-        return False
-
     def update_boards(self,sunk):
         """
         Updates players' tracking boards if ship is sunk (does not update for owner himself)
@@ -210,7 +194,7 @@ class Game:
     def leave_game(self, user_name):
         """
         Player with user_name leaves: must remove all ships
-        @param: user_name is username of leaving player
+        @param: user_name is user name of leaving player
         @TODO: must remove all ships, but what about already shot ships?!?
         """
         for player in self.player_list:
@@ -222,13 +206,35 @@ class Game:
                     self.owner = new_owner
                     new_owner.is_owner = True
 
+    def end_session(self):
+        """
+        Check session end condition
+        @return: returns True if there exists only one player who is online
+        """
+        for player in self.player_list:
+            if player.is_online:
+                return False
+        return True
+    
+    def is_game_over(self):
+        """
+        Check game end condition
+        @return: returns True if there exists only one ONLINE player who has ships remaining
+        """
+        for player in self.player_list:
+            if player.is_online and not player.all_ships_sunk():
+                return False
+        return True
+
+
 #For testing purposes
+"""
 pl1 = Player('markus')
 pl2 = Player('markus2')
 game = Game(pl1, 10, None, None)
 game.join(pl2)
 
-game.create_boards()
+game.create_all_boards()
 
 print 'Player 1'
 for line in pl1.main_board:
@@ -236,6 +242,9 @@ for line in pl1.main_board:
 print 'Player 2'
 for line in pl2.main_board:
     print line
+
+print'Game over:', game.is_game_over()
+print 'All ships sunk', pl1.all_ships_sunk()
 while True:
     x = raw_input('X coordinate')
     y = raw_input('Y coordinate')
@@ -247,6 +256,7 @@ while True:
     print 'Player 2'
     for line in pl2.main_board:
         print line
+"""
 
 
 
