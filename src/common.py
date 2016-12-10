@@ -21,6 +21,11 @@ NO_SHIP_SHOT = 3
 NOT_SHOT = 4
 SHIP_SUNK = 5
 
+#values for mode
+ONLINE = 'online'
+SPECTATOR = 'spectator'
+DISCONNECTED = 'disconnected'
+
 def construct_message(args):
 	return MSG_SEP.join(map(str,args))
 

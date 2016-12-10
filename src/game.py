@@ -1,4 +1,4 @@
-from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT , NOT_SHOT, SHIP_SUNK
+from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT , NOT_SHOT, SHIP_SUNK, ONLINE, SPECTATOR, DISCONNECTED
 from player import Player
 from random import randint
 
@@ -69,8 +69,8 @@ class Game:
             return
         for player in self.player_list:
             print player.user_name
-            # there is a hit
-            if player.user_name != shooter:
+            # there is a hit 
+            if player.user_name != shooter and player.mode == ONLINE:
                 if player.main_board[y][x] in [SHIP_NOT_SHOT, SHIP_SHOT]:
                     # Updating board
                     print 'Hit!'
@@ -86,10 +86,10 @@ class Game:
             if len(sunk_ships)>0:
                 #Update all players' tracking board
                 self.update_boards(sunk_ships)
-        #Updating shooter's board
+        #Updating shooter's board and SPECTATOR (if hit, he should see it)
             else:
                 for player in self.player_list:
-                    if player.user_name == shooter:
+                    if player.user_name == shooter or player.mode == SPECTATOR:
                         player.tracking_board[y][x] = SHIP_SHOT
         else:
              for player in self.player_list:
@@ -212,7 +212,7 @@ class Game:
         @return: returns True if there exists only one player who is online
         """
         for player in self.player_list:
-            if player.is_online:
+            if player.mode == ONLINE:
                 return False
         return True
     
@@ -222,10 +222,31 @@ class Game:
         @return: returns True if there exists only one ONLINE player who has ships remaining
         """
         for player in self.player_list:
-            if player.is_online and not player.all_ships_sunk():
+            if player.mode == ONLINE and not player.all_ships_sunk():
                 return False
         return True
 
+    def set_as_spectator(self, player):
+        """
+        Player enters spectator mode: all ships are sunk and must see all ships
+        Must see all ships on other players on tracing board
+        @TODO: what about ships of disconnected users-should see them or not
+        Annabell: No, but if disconnected user becomes online should exec  set_as_spectator again
+        """
+        if not player.all_ships_sunk():
+            #Clear current tracking board
+            board = []
+            for i in range(self.board_size):
+                board.append([NOT_SHOT] * self.board_size)
+            player.tracking_board = board
+            #loop main boards of all ONLINE players
+            for pl in self.player_list:
+                if pl != player:
+                    for x in range(self.board_size):
+                        for y in range(self.board_size):
+                            #If ship damaged or sunk or just exists
+                            if pl.main_board[y][x] in [SHIP_SUNK, SHIP_SHOT, SHIP_NOT_SHOT]:
+                                 player.tracking_board[y][x] = pl.main_board[y][x]
 
 #For testing purposes
 """
@@ -244,7 +265,15 @@ for line in pl2.main_board:
     print line
 
 print'Game over:', game.is_game_over()
-print 'All ships sunk', pl1.all_ships_sunk()
+print'All sunk:', pl1.all_ships_sunk()
+print 'Setting as spectator'
+game.set_as_spectator(pl1)
+
+print 'Player 1 tracking should display player 2 ships'
+for line in pl1.tracking_board:
+    print line
+
+
 while True:
     x = raw_input('X coordinate')
     y = raw_input('Y coordinate')
