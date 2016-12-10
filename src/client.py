@@ -2,7 +2,7 @@
 import pika
 import uuid
 import json
-from common import construct_message, decode_message, LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER
+from common import construct_message, decode_message, LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK
 
 class Client(object):
     def __init__(self):
@@ -113,56 +113,85 @@ class Client(object):
     def remove_user(self, game_key, user_name):
         return self.message_direct(game_key, construct_message([REMOVE_USER, user_name]))
 
-    # local methods to draw boards on-screen
-    def draw_main_board(self,board):
-        size = len(board)
+
+# local methods to draw boards on-screen
+def draw_main_board(board):
+    size = len(board)
+    temp = []
+
+    temp.append("\\")
+    for e in range(0,size):
+        temp.append(str(e))
+    print "  ".join(temp)
+    for y in range(0,size):
         temp = []
-
-        temp.append("\\")
-        for e in range(0,size):
-            temp.append(str(e))
+        temp.insert(0, str(y))
+        for x in range(0,size):
+            if board[y][x] == NO_SHIP:
+                temp.append('.')
+            elif board[y][x] == SHIP_NOT_SHOT:
+                temp.append('#')
+            elif board[y][x] == SHIP_SHOT:
+                temp.append('#')
+            elif board[y][x] == NO_SHIP_SHOT:
+                temp.append('.')
         print "  ".join(temp)
-        for y in range(0,size):
-            temp = []
-            temp.insert(0, str(y))
-            for x in range(0,size):
-                if board[y][x] == 0:
-                    temp.append('.')
-                elif board[y][x] == 1:
-                    temp.append('#')
-                elif board[y][x] == 2:
-                    temp.append('#')
-                elif board[y][x] == 3:
-                    temp.append('.')
-            print "  ".join(temp)
-        return
+    return
 
-    def draw_tracking_board(self,board):
-        size = len(board)
-        print(size)
+def draw_tracking_board(board):
+    size = len(board)
+    print(size)
+    temp = []
+
+    temp.append("\\")
+    for e in range(0, size):
+        temp.append(str(e))
+    print "  ".join(temp)
+    for y in range(0, size):
         temp = []
-
-        temp.append("\\")
-        for e in range(0, size):
-            temp.append(str(e))
+        temp.insert(0, str(y))
+        for x in range(0, size):
+            if board[y][x] == NO_SHIP:
+                temp.append('.')
+            elif board[y][x] == SHIP_NOT_SHOT:
+                temp.append('.')
+            elif board[y][x] == SHIP_SHOT:
+                temp.append('x')
+            elif board[y][x] == NO_SHIP_SHOT:
+                temp.append('o')
+            elif board[y][x] == NOT_SHOT:
+                temp.append('.')
+            elif board[y][x] == SHIP_SUNK:
+                temp.append('x')
         print "  ".join(temp)
-        for y in range(0, size):
-            temp = []
-            temp.insert(0, str(y))
-            for x in range(0, size):
-                if board[y][x] == 0:
-                    temp.append('.')
-                elif board[y][x] == 1:
-                    temp.append('.')
-                elif board[y][x] == 2:
-                    temp.append('x')
-                elif board[y][x] == 3:
-                    temp.append('o')
-                elif board[y][x] == 4:
-                    temp.append('.')
-                elif board[y][x] == 5:
-                    temp.append('x')
-            print "  ".join(temp)
+
+def start_game():
+    print("Welcome to the multiplayer Battleships game")
+    user_name = raw_input("What's your username: ")
+
+    response = json.loads(client.get_game_servers())
+    print('NAME\tKEY')
+    for server, r_key in response.items():
+        print('{}\t{}'.format(server, r_key))
+
+    response = json.loads(client.join_game_server(r_key, user_name))
+
+    avail_games = json.loads(client.message_direct(r_key, LIST_GAMES))
+    print('Available games')
+    for game_name in avail_games:
+        print game_name
+
+    hosting = raw_input("Do you want to join a session or host a new session? [J]/[H]")
+
+    if hosting == 'J':
+        # TODO joining game
+        print("join placeholder")
+
+    elif hosting == 'H':
+        # TODO hosting new game
+        print("host placeholder")
+
+    # TODO call out local game function(s)
 
 
 # Code for testing the client
