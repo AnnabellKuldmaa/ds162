@@ -113,6 +113,58 @@ class Client(object):
     def remove_user(self, game_key, user_name):
         return self.message_direct(game_key, construct_message([REMOVE_USER, user_name]))
 
+    # local methods to draw boards on-screen
+    def draw_main_board(self,board):
+        size = len(board)
+        temp = []
+
+        temp.append("\\")
+        for e in range(0,size):
+            temp.append(str(e))
+        print "  ".join(temp)
+        for y in range(0,size):
+            temp = []
+            temp.insert(0, str(y))
+            for x in range(0,size):
+                if board[y][x] == 0:
+                    temp.append('.')
+                elif board[y][x] == 1:
+                    temp.append('#')
+                elif board[y][x] == 2:
+                    temp.append('#')
+                elif board[y][x] == 3:
+                    temp.append('.')
+            print "  ".join(temp)
+        return
+
+    def draw_tracking_board(self,board):
+        size = len(board)
+        print(size)
+        temp = []
+
+        temp.append("\\")
+        for e in range(0, size):
+            temp.append(str(e))
+        print "  ".join(temp)
+        for y in range(0, size):
+            temp = []
+            temp.insert(0, str(y))
+            for x in range(0, size):
+                if board[y][x] == 0:
+                    temp.append('.')
+                elif board[y][x] == 1:
+                    temp.append('.')
+                elif board[y][x] == 2:
+                    temp.append('x')
+                elif board[y][x] == 3:
+                    temp.append('o')
+                elif board[y][x] == 4:
+                    temp.append('.')
+                elif board[y][x] == 5:
+                    temp.append('x')
+            print "  ".join(temp)
+
+
 # Code for testing the client
 client = Client()
 
