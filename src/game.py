@@ -221,10 +221,11 @@ class Game:
         Check game end condition
         @return: returns True if there exists only one ONLINE player who has ships remaining
         """
+        in_game = 0
         for player in self.player_list:
             if player.mode == ONLINE and not player.all_ships_sunk():
-                return False
-        return True
+                in_game = in_game + 1
+        return (len(in_game) <= 1)
 
     def set_as_spectator(self, player):
         """
