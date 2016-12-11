@@ -31,3 +31,51 @@ def construct_message(args):
 
 def decode_message(message):
 	return message.split(MSG_SEP)
+
+def draw_main_board(board):
+    size = len(board)
+    temp = []
+    temp.append("\\")
+    for e in range(0,size):
+        temp.append(str(e))
+    print "  ".join(temp)
+    for y in range(0,size):
+        temp = []
+        temp.insert(0, str(y))
+        for x in range(0,size):
+            if board[y][x] == NO_SHIP:
+                temp.append('.')
+            elif board[y][x] == SHIP_NOT_SHOT:
+                temp.append('#')
+            elif board[y][x] == SHIP_SHOT:
+                temp.append('#')
+            elif board[y][x] == NO_SHIP_SHOT:
+                temp.append('.')
+        print "  ".join(temp)
+    return
+
+def draw_tracking_board(board):
+    size = len(board)
+    print(size)
+    temp = []
+    temp.append("\\")
+    for e in range(0, size):
+        temp.append(str(e))
+    print "  ".join(temp)
+    for y in range(0, size):
+        temp = []
+        temp.insert(0, str(y))
+        for x in range(0, size):
+            if board[y][x] == NO_SHIP:
+                temp.append('.')
+            elif board[y][x] == SHIP_NOT_SHOT:
+                temp.append('.')
+            elif board[y][x] == SHIP_SHOT:
+                temp.append('x')
+            elif board[y][x] == NO_SHIP_SHOT:
+                temp.append('o')
+            elif board[y][x] == NOT_SHOT:
+                temp.append('.')
+            elif board[y][x] == SHIP_SUNK:
+                temp.append('x')
+        print "  ".join(temp)

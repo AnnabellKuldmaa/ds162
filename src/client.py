@@ -2,7 +2,9 @@
 import pika
 import uuid
 import json
-from common import construct_message, decode_message, LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK
+from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
+ LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
+ NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK
 
 class Client(object):
     def __init__(self):
@@ -76,21 +78,28 @@ class Client(object):
         self.user_name = user_name
         return self.message_direct(server_key, construct_message([JOIN_SERVER, user_name]))
 
-    def create_game(self, user_name, server_key, board_size):
+    def create_game(self,server_key, board_size):
         """
         Sends params for game creation to game server
         :param user_name: Necessary for server to know who's creating the game
         :param server_key: Game_server where the game is created
         :param board_size: gameboard size
-        :return: response
+        :return
         """
-        return self.message_direct(server_key, construct_message([CREATE_GAME, user_name, board_size]))
+        response  = self.message_direct(server_key, construct_message([CREATE_GAME, self.user_name, board_size]))
+        response = decode_message(response)
+        game_exchange = response[0]
+        print(game_exchange)
+        self.channel.queue_bind(exchange=game_exchange,
+                        queue=self.incoming_queue,
+                        routing_key=self.user_name)
+        print('Joined to a game. Incoming queue registered to game exchange.')
 
     def join_game(self, server_key, game_id):
         """
         Sends join request to game at server. Gets exchange names, makes queues and binds to them.
         :param server_key: Game server to connect to
-        :param user_name: Cuurent user's name
+        :param user_name: Curent user's name
         :param game_id: Game name to connect to
         :return:
         """
@@ -114,107 +123,47 @@ class Client(object):
         return self.message_direct(game_key, construct_message([REMOVE_USER, user_name]))
 
 
-# local methods to draw boards on-screen
-def draw_main_board(board):
-    size = len(board)
-    temp = []
 
-    temp.append("\\")
-    for e in range(0,size):
-        temp.append(str(e))
-    print "  ".join(temp)
-    for y in range(0,size):
-        temp = []
-        temp.insert(0, str(y))
-        for x in range(0,size):
-            if board[y][x] == NO_SHIP:
-                temp.append('.')
-            elif board[y][x] == SHIP_NOT_SHOT:
-                temp.append('#')
-            elif board[y][x] == SHIP_SHOT:
-                temp.append('#')
-            elif board[y][x] == NO_SHIP_SHOT:
-                temp.append('.')
-        print "  ".join(temp)
-    return
-
-def draw_tracking_board(board):
-    size = len(board)
-    print(size)
-    temp = []
-
-    temp.append("\\")
-    for e in range(0, size):
-        temp.append(str(e))
-    print "  ".join(temp)
-    for y in range(0, size):
-        temp = []
-        temp.insert(0, str(y))
-        for x in range(0, size):
-            if board[y][x] == NO_SHIP:
-                temp.append('.')
-            elif board[y][x] == SHIP_NOT_SHOT:
-                temp.append('.')
-            elif board[y][x] == SHIP_SHOT:
-                temp.append('x')
-            elif board[y][x] == NO_SHIP_SHOT:
-                temp.append('o')
-            elif board[y][x] == NOT_SHOT:
-                temp.append('.')
-            elif board[y][x] == SHIP_SUNK:
-                temp.append('x')
-        print "  ".join(temp)
-
-def start_game():
-    print("Welcome to the multiplayer Battleships game")
-    user_name = raw_input("What's your username: ")
-
+if __name__ == "__main__":
+    client = Client()
+    
+    print("Requesting game servers.")
     response = json.loads(client.get_game_servers())
     print('NAME\tKEY')
     for server, r_key in response.items():
         print('{}\t{}'.format(server, r_key))
+    
+    while True:
+        srv = raw_input("Which server to join?")
+        srv_key = response[srv]
+        if srv_key is not None:
+            break
+    
+    while True:
+        user_name = raw_input('Enter user name')
+        avail_games = json.loads(client.join_game_server(srv_key, user_name))
+        if not avail_games == 'NOK':
+            break
+    
+    client.user_name = user_name
 
-    response = json.loads(client.join_game_server(r_key, user_name))
-
-    avail_games = json.loads(client.message_direct(r_key, LIST_GAMES))
     print('Available games')
     for game_name in avail_games:
         print game_name
-
-    hosting = raw_input("Do you want to join a session or host a new session? [J]/[H]")
-
-    if hosting == 'J':
-        # TODO joining game
-        print("join placeholder")
-
-    elif hosting == 'H':
-        # TODO hosting new game
-        print("host placeholder")
-
-    # TODO call out local game function(s)
-
-
-# Code for testing the client
-client = Client()
-
-print("Requesting gameservers.")
-response = json.loads(client.get_game_servers())
-print('NAME\tKEY')
-for server, r_key in response.items():
-    print('{}\t{}'.format(server, r_key))
     
+    while True:
+        hosting = raw_input("Do you want to join a session or host a new session? [J]/[H]")
+        if hosting == 'J' and len(response) > 0:
+             while True:
+                 game_id = raw_input("Which game?")
+                 if game_id in avail_games:
+                      client.join_game(srv_key, game_id)
+                      break
+             break
+        if hosting == 'H':
+            board_size = raw_input('Board size?')
+            client.create_game(srv_key, int(board_size))
+            break
 
-user_name = 'markus'
-response = json.loads(client.join_game_server(r_key, user_name))
-if response == 'NOK':
-    response = client.create_game(user_name, r_key, 10)
-
-avail_games = json.loads(client.message_direct(r_key, LIST_GAMES))
-print('Available games')
-for game_name in avail_games:
-    print game_name
-
-if len(avail_games) > 0:
-    response = client.join_game(r_key, avail_games[0])
 
 

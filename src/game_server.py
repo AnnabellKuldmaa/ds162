@@ -56,8 +56,8 @@ class GameServer:
             else:
                 response = json.dumps('NOK', ensure_ascii=False)
         elif body[0] == CREATE_GAME:
-            self.create_game(body[1], body[2])
-            response = json.dumps('Game_created', ensure_ascii=False)
+            game_exchange = self.create_game(body[1], body[2])
+            response = game_exchange
         elif body[0] == JOIN_GAME:
             game_exchange = self.join_game(body[1], body[2])
             response = game_exchange
@@ -98,6 +98,7 @@ class GameServer:
         spec_exchange, game_exchange = self.create_game_exchanges(game_name)
         game = Game(owner, size, spec_exchange, game_exchange)
         self.games['GAME_%d' % gamenr] = game
+        return game_exchange
 
     def create_game_exchanges(self, game_name):
         """
@@ -122,5 +123,5 @@ class GameServer:
         return game_exchange
 
 
-
-game_server = GameServer()
+if __name__ == "__main__":
+    game_server = GameServer()
