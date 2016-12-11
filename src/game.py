@@ -111,6 +111,8 @@ class Game:
         for i in range(self.board_size):
             board.append([NO_SHIP] * self.board_size)
         ships = [[5, 1], [4, 1], [3, 1] , [2, 2], [1, 2]]
+        #Use less ships for testing
+        #ships =[[1, 2]]
         positioned_ships = []
         for s in ships:
             size = s[0]
@@ -225,7 +227,7 @@ class Game:
         for player in self.player_list:
             if player.mode == ONLINE and not player.all_ships_sunk():
                 in_game = in_game + 1
-        return (len(in_game) <= 1)
+        return (in_game <= 1)
 
     def set_as_spectator(self, player):
         """
@@ -253,29 +255,36 @@ class Game:
 """
 pl1 = Player('markus')
 pl2 = Player('markus2')
+pl3 = Player('markus3')
 game = Game(pl1, 10, None, None)
 game.join(pl2)
+game.join(pl3)
 
 game.create_all_boards()
 
 print 'Player 1'
 for line in pl1.main_board:
     print line
+
 print 'Player 2'
 for line in pl2.main_board:
     print line
 
-print'Game over:', game.is_game_over()
-print'All sunk:', pl1.all_ships_sunk()
-print 'Setting as spectator'
-game.set_as_spectator(pl1)
-
-print 'Player 1 tracking should display player 2 ships'
-for line in pl1.tracking_board:
+print 'Player 2'
+for line in pl2.main_board:
     print line
 
+#print'Game over:', game.is_game_over()
+#print'All sunk:', pl1.all_ships_sunk()
+#print 'Setting as spectator'
+#game.set_as_spectator(pl1)
 
-while True:
+#print 'Player 1 tracking should display player 2 ships'
+#for line in pl1.tracking_board:
+#    print line
+
+print('1 is shooting 2')
+while not game.is_game_over():
     x = raw_input('X coordinate')
     y = raw_input('Y coordinate')
     game.shoot('markus', int(x), int(y))
@@ -285,6 +294,9 @@ while True:
         print line
     print 'Player 2'
     for line in pl2.main_board:
+        print line
+    print 'Player 3 tracking'
+    for line in pl3.tracking_board:
         print line
 """
 
