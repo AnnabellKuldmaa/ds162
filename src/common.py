@@ -10,6 +10,8 @@ UNKNOWN_REQUEST = '7'
 SHOOT = '8'
 LEAVE_GAME = '9'
 REMOVE_USER = '10'
+USER_JOINED = '11'
+START_GAME = '12'
 
 #values for main board
 NO_SHIP = 0
