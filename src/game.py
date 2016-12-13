@@ -201,7 +201,7 @@ class Game:
         """
         for player in self.player_list:
             if player.user_name == user_name:
-                player_list.remove(player)
+                self.player_list.remove(player)
                 #Set new owner
                 if player.is_owner:
                     new_owner  = self.player_list[randint(0, len(self.player_list)-1)]

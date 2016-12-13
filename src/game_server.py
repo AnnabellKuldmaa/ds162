@@ -126,7 +126,6 @@ class GameServer:
         self.channel.basic_publish(exchange=game_exchange,
                                    routing_key=game_owner,
                                    body=construct_message([USER_JOINED, user_name]))
-
         return game_exchange
 
 

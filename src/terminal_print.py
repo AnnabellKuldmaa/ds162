@@ -2,7 +2,7 @@
 The magic below which handles printing while waiting for input, is taken from stackoverflow
 http://stackoverflow.com/questions/2082387/reading-input-from-raw-input-without-having-the-prompt-overwritten-by-other-th
 """
-import sys, readline, struct, time, termios, fcntl
+import sys, readline, struct, termios, fcntl
 
 def blank_current_readline():
     # Next line said to be reasonably portable for various Unixes
