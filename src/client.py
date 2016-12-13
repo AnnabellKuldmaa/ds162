@@ -7,7 +7,7 @@ import sys
 import readline
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
  LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
- NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED
+ NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, OK, NOK
 from terminal_print import join_reporter, blank_current_readline
 
 
@@ -56,7 +56,7 @@ class Client(object):
         message = decode_message(body)
         req_code = message[0]
         if req_code == USER_JOINED:
-            blank_current_readline()
+            blank_current_readline
             print('Player %s joined your game' % message[1])
             sys.stdout.write('> ' + readline.get_line_buffer())
             sys.stdout.flush()
@@ -121,15 +121,18 @@ class Client(object):
         """
         response = self.message_direct(server_key, construct_message([JOIN_GAME, self.user_name, game_id]))
         response = decode_message(response)
-        game_exchange = response[0]
-        print(game_exchange)
-        self.current_game = game_id
-        self.channel.queue_bind(exchange=game_exchange,
-                        queue=self.incoming_queue,
-                        routing_key=self.user_name)
-        self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
-        print('Joined to gameserver. Incoming queue registered to %s' % game_exchange)
-        return
+        if response[0] != NOK:
+            game_exchange = response[0]
+            print(game_exchange)
+            self.current_game = game_id
+            self.channel.queue_bind(exchange=game_exchange,
+                            queue=self.incoming_queue,
+                            routing_key=self.user_name)
+            self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
+            print('Joined to gameserver. Incoming queue registered to %s' % game_exchange)
+            return OK
+        return NOK
+    
     
     def shoot(self, game_key, x, y):
         return self.message_direct(game_key, construct_message([SHOOT, x, y]))
@@ -162,7 +165,7 @@ if __name__ == "__main__":
         #user_name = raw_input('Enter user name')
         user_name = 'MMMMM'
         avail_games = json.loads(client.join_game_server(srv_key, user_name))
-        if not avail_games == 'NOK':
+        if not avail_games == NOK:
             break
         else:
             avail_games = json.loads(client.join_game_server(srv_key, 'KKKKKK'))
@@ -180,9 +183,9 @@ if __name__ == "__main__":
              while True:
                  game_id = raw_input("Which game?")
                  if game_id in avail_games:
-                      client.join_game(srv_key, game_id)
-                      client.current_game = game_id
-                      break
+                      if client.join_game(srv_key, game_id) == OK:
+                          client.current_game = game_id
+                          break
              break
         if hosting == 'H':
             board_size = 10#raw_input('Board size?')
@@ -192,6 +195,8 @@ if __name__ == "__main__":
             while True:
                 command = raw_input('>')
                 print(command)
+                if command == 'S':
+                    print('Start game')
 
 
 

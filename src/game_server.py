@@ -2,7 +2,7 @@ import pika
 import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
-    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME
+    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK
 from player import Player
 from game import Game
 
@@ -54,13 +54,15 @@ class GameServer:
                 self.online_clients[body[1]] = player
                 response = json.dumps(self.games.keys(), ensure_ascii=False)
             else:
-                response = json.dumps('NOK', ensure_ascii=False)
+                response = json.dumps(NOK, ensure_ascii=False)
         elif body[0] == CREATE_GAME:
             game_exchange, game_name = self.create_game(body[1], body[2])
             response = construct_message([game_exchange, game_name])
         elif body[0] == JOIN_GAME:
             game_exchange = self.join_game(body[1], body[2])
             response = game_exchange
+        elif body[0]== START_GAME:
+            self.start_game(body[1], body[2])
         else:
             response = UNKNOWN_REQUEST
 
@@ -120,14 +122,23 @@ class GameServer:
     def join_game(self, user_name, game_name):
         player = self.online_clients[user_name]
         game = self.games[game_name]
-        game_exchange = game.join(player)
-        game_owner = game.owner.user_name
-        print('Sending login user info to %s' %game_owner)
-        self.channel.basic_publish(exchange=game_exchange,
-                                   routing_key=game_owner,
-                                   body=construct_message([USER_JOINED, user_name]))
+        if game.can_join:
+            game_exchange = game.join(player)
+            game_owner = game.owner.user_name
+            print('Sending login user info to %s' %game_owner)
+            self.channel.basic_publish(exchange=game_exchange,
+                                       routing_key=game_owner,
+                                       body=construct_message([USER_JOINED, user_name]))
+            return game_exchange
+        else: return NOK
+    
+    def start_game(self, user_name, game_name):
+        player = self.online_clients[user_name]
+        game = self.games[game_name]
+        return
+        
 
-        return game_exchange
+       
 
 
 if __name__ == "__main__":
