@@ -12,6 +12,8 @@ LEAVE_GAME = '9'
 REMOVE_USER = '10'
 USER_JOINED = '11'
 START_GAME = '12'
+NOK = '13'
+OK = '14'
 
 #values for main board
 NO_SHIP = 0

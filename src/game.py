@@ -30,6 +30,7 @@ class Game:
         self.board_size = board_size
         self.spec_exchange = spec_exchange
         self.game_exchange = game_exchange
+        self.can_join = True
 
     def join(self, user):
         """

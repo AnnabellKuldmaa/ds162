@@ -7,7 +7,8 @@ import sys
 import readline
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
  LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
- NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME
+ NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
+OK, NOK, YOUR_TURN, YOUR_HITS
 from terminal_print import join_reporter, blank_current_readline
 
 
@@ -26,9 +27,10 @@ class Client(object):
         self.incoming_queue = self.incoming_queue.method.queue
 
         self.channel.basic_consume(self.on_info, no_ack=True, queue=self.incoming_queue) # listener on incoming message queue
-        self.user_name = None  #TODO > Maybe we should set it at init
-        self.current_game = None  # Makes it easier to always send to the right game
+        self.user_name = None
+        self.current_game = None
         self.server_key = None
+        self.player_turn = False
 
     def on_response(self, ch, method, props, body):
         """
@@ -59,6 +61,22 @@ class Client(object):
             print('Player %s joined your game' % message[1])
             sys.stdout.write('> ' + readline.get_line_buffer())
             sys.stdout.flush()
+        if req_code == YOUR_TURN:
+            self.player_turn = True
+        if req_code == YOUR_HITS:
+            print('Your Hits:')
+            for hit in message[1:]:
+                print(hit)
+            print(self.determine_godlikeness(message[1:]))
+
+    def determine_godlikeness(self, hits):
+        if len(hits) == 2:
+            return 'DOUBLE KILL!'
+        if len(hits) == 3:
+            return 'DOMINATING!'
+        if len(hits) > 3:
+            return 'GODLIKE!'
+
 
     def message_direct(self, key, body):
         """
@@ -120,35 +138,47 @@ class Client(object):
         """
         response = self.message_direct(self.server_key, construct_message([JOIN_GAME, self.user_name, game_id]))
         response = decode_message(response)
-        game_exchange = response[0]
-        print(game_exchange)
-        self.current_game = game_id
-        self.channel.queue_bind(exchange=game_exchange,
-                        queue=self.incoming_queue,
-                        routing_key=self.user_name)
-        self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
-        print('Joined to gameserver. Incoming queue registered to %s' % game_exchange)
-        return
+        if response[0] != NOK:
+            game_exchange = response[0]
+            print(game_exchange)
+            self.current_game = game_id
+            self.channel.queue_bind(exchange=game_exchange,
+                            queue=self.incoming_queue,
+                            routing_key=self.user_name)
+            self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
+            print('Joined to gameserver. Incoming queue registered to %s' % game_exchange)
+            return OK
+        return NOK
 
     def start_game(self):
-        return self.message_direct(self.server_key, construct_message([self.current_game, START_GAME]))
+        print('Starting game!')
+        return self.message_direct(self.server_key, construct_message([START_GAME, self.user_name, self.current_game]))
     
     def shoot(self, x, y):
-        return self.message_direct(construct_message([SHOOT, x, y]))
+        print('Shooting at %d, %d' % (x, y))
+        return self.message_direct(self.server_key, construct_message([SHOOT, self.user_name, self.current_game, x, y]))
     
     def leave_game(self):
-        return self.message_direct(LEAVE_GAME)
+        print('Leaving game')
+        return self.message_direct(self.server_key, construct_message([LEAVE_GAME, self.user_name, self.current_game]))
 
-    def remove_user(self, game_key, user_name):
-        return self.message_direct(game_key, construct_message([REMOVE_USER, user_name]))
+    def remove_user(self, user_name):
+        print('Removing %s from game' % user_name)
+        return self.message_direct(self.server_key, construct_message([REMOVE_USER, self.user_name, self.current_game, user_name]))
 
 
 def parse_command(command):
-    cmd = command.lower()
-    if cmd == 'start':
+    cmd = command.lower().split()
+    cmd_code = cmd[0]
+    if cmd_code == 'start':
         client.start_game()
-    elif cmd.startswith('shoot'):
-        
+    elif cmd_code == 'shoot':
+        client.shoot(cmd[1], cmd[2])
+    elif cmd_code == 'leave':
+        client.leave_game()
+        client.current_game = None
+    elif cmd_code == 'remove':
+        client.remove_user(cmd[1])
 
 
 if __name__ == "__main__":
@@ -171,8 +201,8 @@ if __name__ == "__main__":
     while True:
         #user_name = raw_input('Enter user name')
         user_name = 'MMMMM'
-        avail_games = json.loads(client.join_game_server(user_name))
-        if not avail_games == 'NOK':
+        avail_games = json.loads(client.join_game_server(srv_key, user_name))
+        if not avail_games == NOK:
             break
         else:
             avail_games = json.loads(client.join_game_server('KKKKKK'))
@@ -190,18 +220,20 @@ if __name__ == "__main__":
              while True:
                  game_id = raw_input("Which game?")
                  if game_id in avail_games:
-                      client.join_game(game_id)
-                      client.current_game = game_id
-                      break
+                      if client.join_game(srv_key, game_id) == OK:
+                          client.current_game = game_id
+                          break
              break
         if hosting == 'H':
             board_size = 10#raw_input('Board size?')
             client.create_game(int(board_size))
+            client.player_turn = True
 
     thread.start_new_thread(join_reporter, (client, ))
     while True:
-        command = raw_input('>')
-        parse_command(command)
+        if client.player_turn:
+            command = raw_input('>')
+            parse_command(command)
 
 
 
