@@ -14,6 +14,8 @@ USER_JOINED = '11'
 START_GAME = '12'
 NOK = '13'
 OK = '14'
+BOARDS = '15'
+YOUR_TURN = '16'
 
 #values for main board
 NO_SHIP = 0
