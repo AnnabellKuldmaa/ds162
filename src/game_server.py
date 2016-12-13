@@ -2,7 +2,8 @@ import pika
 import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
-    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT
+    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT, \
+    SESSION_END, GAME_OVER
 from player import Player
 from game import Game
 
@@ -192,17 +193,22 @@ class GameServer:
                 self.channel.basic_publish(exchange=game_exchange,
                                        routing_key = user,
                                        body=construct_message([HIT, user_name]))
-            #Notify next shooter
-            if not game.is_game_over():
-                next_shooter = game.get_next()
-                self.channel.basic_publish(exchange=game_exchange,
-                                           routing_key = next_shooter.user_name,
-                                           body=YOUR_TURN)
-            #Notify all users that game is over
+            if not game.end_session():
+                #Notify next shooter
+                if not game.is_game_over():
+                    next_shooter = game.get_next()
+                    self.channel.basic_publish(exchange=game_exchange,
+                                               routing_key = next_shooter.user_name,
+                                               body=YOUR_TURN)
+                #Notify all users that game is over
+                else:
+                    #TODO: probably need to so something more
+                     self.channel.basic_publish(exchange=game.spec_exchange,
+                                               body=construct_message([GAME_OVER, game.get_winner()]))
             else:
-                #TODO: probably need to so something more
-                 self.channel.basic_publish(exchange=game.spec_exchange,
-                                           body=construct_message([GAME_OVER, game.get_winner()]))
+                    #TODO: probably need to so something more
+                     self.channel.basic_publish(exchange=game.spec_exchange,
+                                               body=SESSION_END)
 
 
 

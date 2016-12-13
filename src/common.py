@@ -18,7 +18,8 @@ BOARDS = '15'
 YOUR_TURN = '16'
 YOUR_HITS = '17'
 HIT = '18'
-LEAVE_GAME = '19'
+GAME_OVER = '19'
+SESSION_END = '19'
 
 #values for main board
 NO_SHIP = 0
