@@ -31,6 +31,7 @@ class Game:
         self.spec_exchange = spec_exchange
         self.game_exchange = game_exchange
         self.can_join = True
+        self.shooting_player = None
 
     def join(self, user):
         """
@@ -96,6 +97,7 @@ class Game:
              for player in self.player_list:
                 if player.user_name == shooter:
                         player.tracking_board[y][x] = NO_SHIP_SHOT
+        return hits
 
     def create_board(self):
         """
@@ -230,6 +232,15 @@ class Game:
                 in_game = in_game + 1
         return (in_game <= 1)
 
+    def get_winner(self):
+        """
+        @return: user name of winner
+        """        
+        for player in self.player_list:
+            if player.mode == ONLINE and not player.all_ships_sunk():
+                return player.user_name
+
+
     def set_as_spectator(self, player):
         """
         Player enters spectator mode: all ships are sunk and must see all ships
@@ -251,6 +262,23 @@ class Game:
                             #If ship damaged or sunk or just exists
                             if pl.main_board[y][x] in [SHIP_SUNK, SHIP_SHOT, SHIP_NOT_SHOT]:
                                  player.tracking_board[y][x] = pl.main_board[y][x]
+    
+    def get_next_shooter(self):
+        """
+        @return: next Player who can shoot
+        """
+        current = self.player_list.index(self.shooting_player)
+        while True:
+            if current == len(self.player_list)-1:
+                next = 0
+            else:
+                next = current + 1
+            if self.player_list[next].mode == ONLINE:
+                self.shooting_player = self.player_list[next]
+                return self.player_list[next]
+            else:
+                current = next
+            
 
 #For testing purposes
 """

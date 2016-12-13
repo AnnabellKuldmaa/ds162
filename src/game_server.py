@@ -2,7 +2,7 @@ import pika
 import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
-    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK
+    JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT
 from player import Player
 from game import Game
 
@@ -63,15 +63,17 @@ class GameServer:
             response = game_exchange
         elif body[0]== START_GAME:
             self.start_game(body[1], body[2])
+        elif body[0]== SHOOT:
+            self.shoot(body[1], body[2], body[3], body[4])
         else:
             response = UNKNOWN_REQUEST
-
-        ch.basic_publish(exchange='',
-                         routing_key=props.reply_to,
-                         properties=pika.BasicProperties(correlation_id= \
-                                                             props.correlation_id),
-                         body=str(response))
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        if response is not None:
+            ch.basic_publish(exchange='',
+                             routing_key=props.reply_to,
+                             properties=pika.BasicProperties(correlation_id= \
+                                                                 props.correlation_id),
+                             body=str(response))
+            ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def notify_login_server(self):
         """
@@ -131,14 +133,78 @@ class GameServer:
                                        body=construct_message([USER_JOINED, user_name]))
             return game_exchange
         else: return NOK
-    
+        
+    def send_boards(self, game):
+        """
+        Sends every not DISCONNECTED Player in game main board and tracking board
+        """
+        print('Sending all boards')
+        game_exchange = game.game_exchange
+        for player in game.player_list:
+                if player.mode != DISCONNECTED:
+                    self.channel.basic_publish(exchange=game_exchange,
+                                       routing_key=player.user_name,
+                                       body=construct_message([BOARDS, player.main_board, player.tracking_board]))
+
+
     def start_game(self, user_name, game_name):
+        """
+        Starts game: creates boards, sends them to all players, sets owner as first shooter, others cannot join
+        :param game_name: Name of the game as provided by the user
+        :param user_name: must be the owner of the game
+        """
         player = self.online_clients[user_name]
         game = self.games[game_name]
-        return
+        game_exchange = game.game_exchange
         
+        #Only owner can start game
+        if game.owner.user_name == user_name:
+            #Creating boards
+            game.can_join = False
+            game.create_boards()
+            self.send_boards(self, game)
+            game.shooting_player = player
+            #Notifying owner to shoot
+            self.channel.basic_publish(exchange=game_exchange,
+                                       routing_key=player.user_name,
+                                       body=YOUR_TURN)
+    
+    def shoot(self, user_name, game_name, x, y):
+        """
+        Handles a shoot: updates every not DISCONNECTED users' board, notifies shooter,
+         notifies suffering player, notifies next shooter
+        :param game_name: Name of the game as provided by the user
+        :param user_name: shooting user
+        """
+        player = self.online_clients[user_name]
+        game = self.games[game_name]
+        game_exchange = game.game_exchange
+        #Check shooting user
+        if game.shooting_player.user_name == user_name:
+            hits = game.shoot(user_name, x, y)
+            self.send_boards(self, game)
+            #Notify shooter if there was a hit
+            self.channel.basic_publish(exchange=game_exchange,
+                                       routing_key = user_name,
+                                       body=construct_message([YOUR_HITS, hits]))
+            #Notify users that shooter hit them
+            for user in hits:
+                self.channel.basic_publish(exchange=game_exchange,
+                                       routing_key = user,
+                                       body=construct_message([HIT, user_name]))
+            #Notify next shooter
+            if not game.is_game_over():
+                next_shooter = game.get_next()
+                self.channel.basic_publish(exchange=game_exchange,
+                                           routing_key = next_shooter.user_name,
+                                           body=YOUR_TURN)
+            #Notify all users that game is over
+            else:
+                #TODO: probably need to so something more
+                 self.channel.basic_publish(exchange=game.spec_exchange,
+                                           body=construct_message([GAME_OVER, game.get_winner()]))
 
-       
+
 
 
 if __name__ == "__main__":
