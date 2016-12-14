@@ -3,7 +3,7 @@ import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
     JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT, \
-    SESSION_END, GAME_OVER, SHOOT
+    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME
 from player import Player
 from game import Game
 
@@ -68,6 +68,9 @@ class GameServer:
         elif body[0] == SHOOT:
             self.shoot(body[1], body[2], body[3], body[4])
             return
+        elif body[0] == LEAVE_GAME:
+            self.leave_game(body[1], body[2])
+            return
         else:
             response = UNKNOWN_REQUEST
         if response is not None:
@@ -77,6 +80,15 @@ class GameServer:
                                                                  props.correlation_id),
                              body=str(response))
             ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    def leave_game(self, user_name, current_game):
+        game = self.games[current_game]
+        next_shooter = game.get_next_shooter()
+        self.channel.basic_publish(exchange=game.game_exchange,
+                                   routing_key=next_shooter.user_name,
+                                   body=YOUR_TURN)
+        game.leave_game(user_name)
+
 
     def notify_login_server(self):
         """
@@ -189,7 +201,7 @@ class GameServer:
             # Notify shooter if there was a hit
             self.channel.basic_publish(exchange=game_exchange,
                                        routing_key=user_name,
-                                       body=construct_message([YOUR_HITS, hits]))
+                                       body=construct_message([YOUR_HITS, json.dumps(hits)]))
             # Notify users that shooter hit them. Don't loop if hits is None
             if hits:
                 for user in hits:

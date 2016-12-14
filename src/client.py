@@ -9,7 +9,7 @@ from time import sleep
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
     LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
     NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
-    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS
+    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT
 from terminal_print import join_reporter, print_message
 
 
@@ -65,11 +65,14 @@ class Client(object):
             self.player_turn = True
         if req_code == YOUR_HITS:
             to_print = 'Your Hits:\n'
-            if message[1] != 'None':
-                for hit in message[1:]:
-                    message += hit + '\n'
+            hits = json.loads(message[1])
+            if hits:
+                for hit in hits:
+                    to_print += hit + '\n'
+                to_print += self.determine_godlikeness(hits) + '\n'
             print_message(to_print)
-            # print(self.determine_godlikeness(message[1:]))
+        if req_code == HIT:
+            print('One of your ships is under attack!')
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -78,6 +81,8 @@ class Client(object):
             return 'DOMINATING!'
         if len(hits) > 3:
             return 'GODLIKE!'
+        else:
+            return ''
 
     def message_direct(self, key, body):
         """
@@ -181,12 +186,19 @@ class Client(object):
 
 
 def parse_command(command, client):
+    if not command:
+        print('UNKNOWN COMMAND!')
+        return
     cmd = command.lower().split()
     cmd_code = cmd[0]
     if cmd_code == 'start':
         client.start_game()
     elif cmd_code == 'shoot':
-        client.shoot(cmd[1], cmd[2])
+        if len(cmd) == 3:
+            client.player_turn = False
+            client.shoot(cmd[1], cmd[2])
+        else:
+            print('The command to shoot looks like this: "shoot x y" . Try again.')
     elif cmd_code == 'leave':
         client.leave_game()
         client.current_game = None
@@ -248,9 +260,10 @@ if __name__ == "__main__":
 
     thread.start_new_thread(join_reporter, (client,))
     while 1:
-        if client.player_turn:
+        if client.player_turn and client.current_game:
             command = raw_input('>')
-            client.player_turn = False
             parse_command(command, client)
         sleep(0.2)
+        if not client.current_game:
+            break
     print('Main loop exited. Closing main thread.')

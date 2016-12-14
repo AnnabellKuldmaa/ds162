@@ -1,6 +1,7 @@
-from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT , NOT_SHOT, SHIP_SUNK, ONLINE, SPECTATOR, DISCONNECTED
+from common import NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, ONLINE, SPECTATOR, DISCONNECTED
 from player import Player
 from random import randint
+
 
 class Ship():
     def __init__(self, x, y, is_vertical, size, is_sunk=False):
@@ -16,6 +17,7 @@ class Ship():
         self.size = size
         self.is_sunk = False
 
+
 class Game:
     def __init__(self, owner, board_size, spec_exchange, game_exchange):
         """
@@ -24,7 +26,7 @@ class Game:
         """
         self.player_list = [owner]
         self.owner = owner
-        #Board size cannot be less than 10
+        # Board size cannot be less than 10
         if board_size < 10:
             board_size = 10
         self.board_size = board_size
@@ -46,7 +48,7 @@ class Game:
         """
         Creates a main board for each player and positions ships
         """
-        
+
         for player in self.player_list:
             board = []
             for i in range(self.board_size):
@@ -66,7 +68,7 @@ class Game:
         x, y = list(map(int, [x, y]))
         hits = []
         sunk_ships = []
-        
+
         if x > self.board_size or y > self.board_size:
             # Out of the board, do nothing
             return
@@ -81,23 +83,23 @@ class Game:
                     # Check if ship is sunk
                     sunk = self.is_ship_sunk(player)
                     if sunk is not None:
-                        print 'Sunked the ship'
+                        print 'Sunk the ship'
                         sunk_ships.append([sunk, player])
                     hits.append(player.user_name)
         print 'Hits', hits
         if len(hits) > 0:
-            if len(sunk_ships)>0:
-                #Update all players' tracking board
+            if len(sunk_ships) > 0:
+                # Update all players' tracking board
                 self.update_boards(sunk_ships)
-        #Updating shooter's board and SPECTATOR (if hit, he should see it)
+            # Updating shooter's board and SPECTATOR (if hit, he should see it)
             else:
                 for player in self.player_list:
                     if player.user_name == shooter or player.mode == SPECTATOR:
                         player.tracking_board[y][x] = SHIP_SHOT
         else:
-             for player in self.player_list:
+            for player in self.player_list:
                 if player.user_name == shooter:
-                        player.tracking_board[y][x] = NO_SHIP_SHOT
+                    player.tracking_board[y][x] = NO_SHIP_SHOT
 
         return hits
 
@@ -115,9 +117,9 @@ class Game:
         board = []
         for i in range(self.board_size):
             board.append([NO_SHIP] * self.board_size)
-        ships = [[5, 1], [4, 1], [3, 1] , [2, 2], [1, 2]]
-        #Use less ships for testing
-        #ships =[[1, 2]]
+        ships = [[5, 1], [4, 1], [3, 1], [2, 2], [1, 2]]
+        # Use less ships for testing
+        # ships =[[1, 2]]
         positioned_ships = []
         for s in ships:
             size = s[0]
@@ -162,7 +164,7 @@ class Game:
          @return: returns a sunk ship, otherwise None
         """
         for ship in player.ships:
-            if not ship.is_sunk :
+            if not ship.is_sunk:
                 sunked = True
                 for i in range(ship.size):
                     if ship.is_vertical:
@@ -170,7 +172,7 @@ class Game:
                             sunked = False
                             break
                     else:
-                        if player.main_board[ship.y][ship.x + i ] == SHIP_NOT_SHOT:
+                        if player.main_board[ship.y][ship.x + i] == SHIP_NOT_SHOT:
                             sunked = False
                             break
                 if sunked:
@@ -182,7 +184,7 @@ class Game:
                     ship.is_sunk = True
                     return ship
 
-    def update_boards(self,sunk):
+    def update_boards(self, sunk):
         """
         Updates players' tracking boards if ship is sunk (does not update for owner himself)
         @param: sunk list of sunk ships and ship owner [ship, owner]
@@ -207,9 +209,9 @@ class Game:
         for player in self.player_list:
             if player.user_name == user_name:
                 self.player_list.remove(player)
-                #Set new owner
+                # Set new owner
                 if player.is_owner:
-                    new_owner  = self.player_list[randint(0, len(self.player_list)-1)]
+                    new_owner = self.player_list[randint(0, len(self.player_list) - 1)]
                     self.owner = new_owner
                     new_owner.is_owner = True
 
@@ -222,7 +224,7 @@ class Game:
             if player.mode == ONLINE:
                 return False
         return True
-    
+
     def is_game_over(self):
         """
         Check game end condition
@@ -237,11 +239,10 @@ class Game:
     def get_winner(self):
         """
         @return: user name of winner
-        """        
+        """
         for player in self.player_list:
             if player.mode == ONLINE and not player.all_ships_sunk():
                 return player.user_name
-
 
     def set_as_spectator(self, player):
         """
@@ -251,27 +252,27 @@ class Game:
         Annabell: No, but if disconnected user becomes online should exec  set_as_spectator again
         """
         if not player.all_ships_sunk():
-            #Clear current tracking board
+            # Clear current tracking board
             board = []
             for i in range(self.board_size):
                 board.append([NOT_SHOT] * self.board_size)
             player.tracking_board = board
-            #loop main boards of all ONLINE players
+            # loop main boards of all ONLINE players
             for pl in self.player_list:
                 if pl != player:
                     for x in range(self.board_size):
                         for y in range(self.board_size):
-                            #If ship damaged or sunk or just exists
+                            # If ship damaged or sunk or just exists
                             if pl.main_board[y][x] in [SHIP_SUNK, SHIP_SHOT, SHIP_NOT_SHOT]:
-                                 player.tracking_board[y][x] = pl.main_board[y][x]
-    
+                                player.tracking_board[y][x] = pl.main_board[y][x]
+
     def get_next_shooter(self):
         """
         @return: next Player who can shoot
         """
         current = self.player_list.index(self.shooting_player)
         while True:
-            if current == len(self.player_list)-1:
+            if current == len(self.player_list) - 1:
                 next = 0
             else:
                 next = current + 1
@@ -280,9 +281,9 @@ class Game:
                 return self.player_list[next]
             else:
                 current = next
-            
 
-#For testing purposes
+
+# For testing purposes
 """
 pl1 = Player('markus')
 pl2 = Player('markus2')
@@ -330,7 +331,3 @@ while not game.is_game_over():
     for line in pl3.tracking_board:
         print line
 """
-
-
-
-
