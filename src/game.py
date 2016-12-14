@@ -63,6 +63,7 @@ class Game:
         or we update everyone's tracking boards,
         should other people see the hit of player, currently not
         """
+        x, y = list(map(int, [x, y]))
         hits = []
         sunk_ships = []
         
@@ -97,6 +98,7 @@ class Game:
              for player in self.player_list:
                 if player.user_name == shooter:
                         player.tracking_board[y][x] = NO_SHIP_SHOT
+
         return hits
 
     def create_board(self):

@@ -64,10 +64,11 @@ class Client(object):
             print_message('Your turn!')
             self.player_turn = True
         if req_code == YOUR_HITS:
-            message = 'Your Hits:\n'
-            for hit in message[1:]:
-                message += hit + '\n'
-            print_message(message)
+            to_print = 'Your Hits:\n'
+            if message[1] != 'None':
+                for hit in message[1:]:
+                    message += hit + '\n'
+            print_message(to_print)
             # print(self.determine_godlikeness(message[1:]))
 
     def determine_godlikeness(self, hits):
@@ -101,7 +102,7 @@ class Client(object):
 
     def message_game(self, body):
         """
-        Sends message without expecting callback. Required for message protocol furing game
+        Sends message without expecting callback. Required for message protocol during game
         :param body: message you want to send
         :return: Nothing
         """
