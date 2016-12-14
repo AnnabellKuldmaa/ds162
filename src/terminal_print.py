@@ -16,6 +16,12 @@ def blank_current_readline():
     sys.stdout.write('\x1b[0G')                         # Move to start of line
 
 
+def print_message(message):
+        blank_current_readline()
+        print(message)
+        sys.stdout.write(readline.get_line_buffer())
+        sys.stdout.flush()
+
 def join_reporter(client):
     while True:
         client.channel.start_consuming()
