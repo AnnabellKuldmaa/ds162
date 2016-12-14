@@ -20,6 +20,8 @@ YOUR_HITS = '17'
 HIT = '18'
 GAME_OVER = '19'
 SESSION_END = '19'
+SHIP_SUNK_ANNOUNCEMENT = '20'
+NEW_OWNER = '21'
 
 #values for main board
 NO_SHIP = 0

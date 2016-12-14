@@ -101,7 +101,7 @@ class Game:
                 if player.user_name == shooter:
                     player.tracking_board[y][x] = NO_SHIP_SHOT
 
-        return hits
+        return {'hits': hits, 'sunk_ships': sunk_ships}
 
     def create_board(self):
         """
@@ -117,9 +117,9 @@ class Game:
         board = []
         for i in range(self.board_size):
             board.append([NO_SHIP] * self.board_size)
-        ships = [[5, 1], [4, 1], [3, 1], [2, 2], [1, 2]]
+        # ships = [[5, 1], [4, 1], [3, 1], [2, 2], [1, 2]]
         # Use less ships for testing
-        # ships =[[1, 2]]
+        ships =[[1, 2]]
         positioned_ships = []
         for s in ships:
             size = s[0]
@@ -204,16 +204,29 @@ class Game:
         """
         Player with user_name leaves: must remove all ships
         @param: user_name is user name of leaving player
+        @return: returns the new owner name, if it was elected
         @TODO: must remove all ships, but what about already shot ships?!?
         """
+        new_owner_name = None
+        # print('game.leave_game, uname:', user_name)
         for player in self.player_list:
+            # print('player')
             if player.user_name == user_name:
+                # print(self.player_list)
                 self.player_list.remove(player)
+                # print(self.player_list)
                 # Set new owner
-                if player.is_owner:
+                # print(player)
+                # print('self.owner', self.owner)
+
+                if self.owner.user_name == player.user_name:
+                    # print('owner is leaving')
                     new_owner = self.player_list[randint(0, len(self.player_list) - 1)]
                     self.owner = new_owner
                     new_owner.is_owner = True
+                    # print('new_owner', new_owner)
+                    new_owner_name = new_owner.user_name
+        return new_owner_name
 
     def end_session(self):
         """

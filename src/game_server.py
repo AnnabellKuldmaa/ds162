@@ -3,7 +3,7 @@ import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
     JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT, \
-    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME
+    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER
 from player import Player
 from game import Game
 
@@ -87,7 +87,13 @@ class GameServer:
         self.channel.basic_publish(exchange=game.game_exchange,
                                    routing_key=next_shooter.user_name,
                                    body=YOUR_TURN)
-        game.leave_game(user_name)
+        new_owner = game.leave_game(user_name)
+        print('new_owner', new_owner)
+        if new_owner:
+            self.channel.basic_publish(exchange=game.game_exchange,
+                           routing_key=new_owner,
+                           body=NEW_OWNER)
+
 
 
     def notify_login_server(self):
@@ -148,6 +154,22 @@ class GameServer:
         else:
             return NOK
 
+
+    def notify_all(self, game, message):
+        """
+        Sends a message to every not DISCONNECTED Player in game.
+        :param game: game object
+        :param message: the message list
+        """
+        print('Sending all boards')
+        game_exchange = game.game_exchange
+        for player in game.player_list:
+            if player.mode != DISCONNECTED:
+                self.channel.basic_publish(exchange=game_exchange,
+                                           routing_key=player.user_name,
+                                           body=construct_message(message))
+                # message example 
+
     def send_boards(self, game):
         """
         Sends every not DISCONNECTED Player in game main board and tracking board
@@ -196,7 +218,9 @@ class GameServer:
         game_exchange = game.game_exchange
         # Check shooting user
         if game.shooting_player.user_name == user_name:
-            hits = game.shoot(user_name, x, y)
+            shot_results = game.shoot(user_name, x, y)
+            hits = shot_results['hits']
+            sunk_ships = shot_results['sunk_ships']
             self.send_boards(game)
             # Notify shooter if there was a hit
             self.channel.basic_publish(exchange=game_exchange,
@@ -208,6 +232,18 @@ class GameServer:
                     self.channel.basic_publish(exchange=game_exchange,
                                                routing_key=user,
                                                body=construct_message([HIT, user_name]))
+            if sunk_ships:
+                print('some sunk ships')
+                for ship in sunk_ships:
+                    ship_owner = ship[1].user_name
+                    self.notify_all(game, [SHIP_SUNK_ANNOUNCEMENT, user_name, ship_owner])
+
+                # for ship in sunk_ships:
+                #     print('sunk ship', ship)
+                #     ship_owner = ship[1]
+                #     self.channel.basic_publish(exchange=game.spec_exchange,
+                #                                routing_key='placeholder',
+                #                                body=construct_message([SHIP_SUNK_ANNOUNCEMENT, ship_owner]))
 
             if not game.end_session():
                 # Notify next shooter

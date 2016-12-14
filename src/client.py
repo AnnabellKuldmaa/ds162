@@ -5,11 +5,12 @@ import json
 import thread
 import sys
 import readline
+import string, random
 from time import sleep
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
     LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
     NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
-    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT
+    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER
 from terminal_print import join_reporter, print_message
 
 
@@ -72,7 +73,11 @@ class Client(object):
                 to_print += self.determine_godlikeness(hits) + '\n'
             print_message(to_print)
         if req_code == HIT:
-            print('One of your ships is under attack!')
+            print('One of your ships is under attack by {}!'.format(message[1]))
+        if req_code == SHIP_SUNK_ANNOUNCEMENT:
+            print('Player {} sunk players {} ship!'.format(message[1], message[2]))
+        if req_code == NEW_OWNER:
+            print('You are the new owner of this game.')
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -226,16 +231,15 @@ if __name__ == "__main__":
             break
 
     while True:
-        # user_name = raw_input('Enter user name')
-        user_name = 'Alice'
+        # user_name = raw_input('Enter user name: ')
+        user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
         avail_games = json.loads(client.join_game_server(user_name))
-        if not avail_games == NOK:
-            break
+        if avail_games == NOK:
+            print('Username {} taken, please choose a different name.'.format(user_name))
         else:
-            user_name = 'Bob'
-            avail_games = json.loads(client.join_game_server(user_name))
             break
-
+    
+    print('Your name:', user_name) 
     client.user_name = user_name
 
     print('Available games')
@@ -243,10 +247,10 @@ if __name__ == "__main__":
         print game_name
 
     while True:
-        hosting = raw_input("Do you want to join a session or host a new session? [J]/[H] ")
+        hosting = raw_input("Do you want to join a session or host a new session? [J]/[H] ").upper()
         if hosting == 'J' and len(response) > 0:
             while True:
-                game_id = raw_input("Which game? ")
+                game_id = raw_input("Which game? ").upper()
                 if game_id in avail_games:
                     if client.join_game(game_id) == OK:
                         client.current_game = game_id
