@@ -47,7 +47,11 @@ class GameServer:
         body = decode_message(body)
         print 'Received request', body
         if body[0] == LIST_GAMES:
-            response = json.dumps(self.games.keys(), ensure_ascii=False)
+            game_list = []
+            for game_key, game in self.games.iteritems():
+                if game.can_join:
+                    game_list.append(game_key)
+            response = json.dumps(game_list, ensure_ascii=False)
         elif body[0] == JOIN_SERVER:
             if (body[1]) not in self.online_clients:
                 # Create a player instance with the name
@@ -89,11 +93,20 @@ class GameServer:
                                    body=YOUR_TURN)
         new_owner = game.leave_game(user_name)
         print('new_owner', new_owner)
+
         if new_owner:
             self.channel.basic_publish(exchange=game.game_exchange,
                            routing_key=new_owner,
                            body=NEW_OWNER)
 
+        if len(game.player_list) < 2:
+            print('ALL ALONE')
+            print('self.games', self.games)
+            self.remove_game(current_game)
+            print('self.games', self.games)
+            self.channel.basic_publish(exchange=game.game_exchange,
+                           routing_key=new_owner,
+                           body=LEAVE_GAME)
 
 
     def notify_login_server(self):
@@ -138,11 +151,14 @@ class GameServer:
         return spec_exchange, game_exchange
 
     def remove_game(self, gamenr):
-        del self.games['GAME_%d' % gamenr]
+        # del self.games['GAME_%d' % gamenr]
+        del self.games[gamenr]
 
     def join_game(self, user_name, game_name):
         player = self.online_clients[user_name]
         game = self.games[game_name]
+        print('game.can_join')
+        print(game.can_join)
         if game.can_join:
             game_exchange = game.join(player)
             game_owner = game.owner.user_name

@@ -219,7 +219,7 @@ class Game:
                 # print(player)
                 # print('self.owner', self.owner)
 
-                if self.owner.user_name == player.user_name:
+                if self.owner.user_name == player.user_name and self.player_list:
                     # print('owner is leaving')
                     new_owner = self.player_list[randint(0, len(self.player_list) - 1)]
                     self.owner = new_owner

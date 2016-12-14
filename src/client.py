@@ -78,6 +78,12 @@ class Client(object):
             print('Player {} sunk players {} ship!'.format(message[1], message[2]))
         if req_code == NEW_OWNER:
             print('You are the new owner of this game.')
+        if req_code == NOK:
+            print('You requested an invalid action.')
+        if req_code == LEAVE_GAME:
+            print('Leaving game {}.'.format(self.current_game))
+            self.leave_game()
+            self.current_game = None
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -161,6 +167,7 @@ class Client(object):
         """
         response = self.message_direct(self.server_key, construct_message([JOIN_GAME, self.user_name, game_id]))
         response = decode_message(response)
+        print('join_game response', response)
         if response[0] != NOK:
             game_exchange = response[0]
             print(game_exchange)
@@ -213,6 +220,35 @@ def parse_command(command, client):
         print('UNKNOWN COMMAND!')
     return
 
+def refresh_available_games(client):
+    avail_games = json.loads(client.get_game_list())
+    print('Available games')
+    for game_name in avail_games:
+        print game_name
+    return avail_games
+
+def waiting_room(client, avail_games):
+    avail_games = refresh_available_games(client)
+    while True:
+        hosting = raw_input("Do you want to join a session or host a new session? [J]/[H] ").upper()
+        if hosting == 'J' and len(response) > 0:
+            while True:
+                avail_games = refresh_available_games(client)
+                game_id = raw_input("Which game? ").upper()
+                # print()
+                if game_id in avail_games:
+                    print('game_id in avail_games')
+                    if client.join_game(game_id) == OK:
+                        client.current_game = game_id
+                        break
+            break
+        if hosting == 'H':
+            board_size = 10  # raw_input('Board size?')
+            client.create_game(int(board_size))
+            client.player_turn = True
+            break
+
+
 if __name__ == "__main__":
     client = Client()
 
@@ -242,25 +278,7 @@ if __name__ == "__main__":
     print('Your name:', user_name) 
     client.user_name = user_name
 
-    print('Available games')
-    for game_name in avail_games:
-        print game_name
-
-    while True:
-        hosting = raw_input("Do you want to join a session or host a new session? [J]/[H] ").upper()
-        if hosting == 'J' and len(response) > 0:
-            while True:
-                game_id = raw_input("Which game? ").upper()
-                if game_id in avail_games:
-                    if client.join_game(game_id) == OK:
-                        client.current_game = game_id
-                        break
-            break
-        if hosting == 'H':
-            board_size = 10  # raw_input('Board size?')
-            client.create_game(int(board_size))
-            client.player_turn = True
-            break
+    waiting_room(client, avail_games)
 
     thread.start_new_thread(join_reporter, (client,))
     while 1:
@@ -269,5 +287,8 @@ if __name__ == "__main__":
             parse_command(command, client)
         sleep(0.2)
         if not client.current_game:
-            break
+            avail_games = json.loads(client.get_game_list())
+            waiting_room(client, avail_games)
+
+            # break
     print('Main loop exited. Closing main thread.')
