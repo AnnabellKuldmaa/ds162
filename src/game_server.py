@@ -64,8 +64,10 @@ class GameServer:
             response = game_exchange
         elif body[0]== START_GAME:
             self.start_game(body[1], body[2])
+            return
         elif body[0]== SHOOT:
             self.shoot(body[1], body[2], body[3], body[4])
+            return
         else:
             response = UNKNOWN_REQUEST
         if response is not None:
@@ -101,7 +103,7 @@ class GameServer:
         game_name = '{}_{}'.format(self.r_key, gamenr)
         owner = self.online_clients[owner]
         spec_exchange, game_exchange = self.create_game_exchanges(game_name)
-        game = Game(owner, size, spec_exchange, game_exchange)
+        game = Game(owner, int(size), spec_exchange, game_exchange)
         game_name = 'GAME_%d' % gamenr
         self.games[game_name] = game
         return game_exchange, game_name
@@ -145,7 +147,8 @@ class GameServer:
                 if player.mode != DISCONNECTED:
                     self.channel.basic_publish(exchange=game_exchange,
                                        routing_key=player.user_name,
-                                       body=construct_message([BOARDS, player.main_board, player.tracking_board]))
+                                       body=construct_message([BOARDS, json.dumps(player.main_board),\
+                                                               json.dumps(player.tracking_board)]))
 
 
     def start_game(self, user_name, game_name):
@@ -162,10 +165,11 @@ class GameServer:
         if game.owner.user_name == user_name:
             #Creating boards
             game.can_join = False
-            game.create_boards()
-            self.send_boards(self, game)
+            game.create_all_boards()
+            self.send_boards(game)
             game.shooting_player = player
             #Notifying owner to shoot
+            print('Notifying %s' % player.user_name)
             self.channel.basic_publish(exchange=game_exchange,
                                        routing_key=player.user_name,
                                        body=YOUR_TURN)

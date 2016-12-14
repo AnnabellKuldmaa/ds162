@@ -2,7 +2,7 @@
 The magic below which handles printing while waiting for input, is taken from stackoverflow
 http://stackoverflow.com/questions/2082387/reading-input-from-raw-input-without-having-the-prompt-overwritten-by-other-th
 """
-import sys, readline, struct, termios, fcntl
+import sys, readline, struct, termios, fcntl, time
 
 def blank_current_readline():
     # Next line said to be reasonably portable for various Unixes
@@ -17,9 +17,9 @@ def blank_current_readline():
 
 
 def join_reporter(client):
-
     while True:
         client.channel.start_consuming()
+        time.sleep(0.2)
 
 
 

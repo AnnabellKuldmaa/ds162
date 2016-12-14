@@ -44,11 +44,12 @@ def decode_message(message):
 
 def draw_main_board(board):
     size = len(board)
+    printed_board = ''
     temp = []
     temp.append("\\")
     for e in range(0,size):
         temp.append(str(e))
-    print "  ".join(temp)
+    printed_board += "  ".join(temp) + '\n'
     for y in range(0,size):
         temp = []
         temp.insert(0, str(y))
@@ -61,17 +62,17 @@ def draw_main_board(board):
                 temp.append('#')
             elif board[y][x] == NO_SHIP_SHOT:
                 temp.append('.')
-        print "  ".join(temp)
-    return
+        printed_board += "  ".join(temp) + '\n'
+    return printed_board
 
 def draw_tracking_board(board):
     size = len(board)
-    print(size)
+    printed_board = ''
     temp = []
     temp.append("\\")
     for e in range(0, size):
         temp.append(str(e))
-    print "  ".join(temp)
+    printed_board += "  ".join(temp) + '\n'
     for y in range(0, size):
         temp = []
         temp.insert(0, str(y))
@@ -88,4 +89,5 @@ def draw_tracking_board(board):
                 temp.append('.')
             elif board[y][x] == SHIP_SUNK:
                 temp.append('x')
-        print "  ".join(temp)
+        printed_board += "  ".join(temp) + '\n'
+    return printed_board

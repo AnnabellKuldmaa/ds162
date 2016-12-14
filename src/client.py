@@ -5,10 +5,11 @@ import json
 import thread
 import sys
 import readline
+from time import sleep
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
  LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
  NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
-OK, NOK, YOUR_TURN, YOUR_HITS
+OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS
 from terminal_print import join_reporter, blank_current_readline
 
 
@@ -45,29 +46,33 @@ class Client(object):
             self.response = body
             print('Response received', body)
 
+    def print_message(self, message):
+        blank_current_readline()
+        print(message)
+        sys.stdout.write(readline.get_line_buffer())
+        sys.stdout.flush()
+
     def on_info(self, ch, method, props, body):
         """
         Handles information from game.
-        :param ch:
-        :param method:
-        :param props:
-        :param body:
-        :return:
         """
         message = decode_message(body)
         req_code = message[0]
+        print('RECEIVED: ', req_code)
         if req_code == USER_JOINED:
-            blank_current_readline()
-            print('Player %s joined your game' % message[1])
-            sys.stdout.write('> ' + readline.get_line_buffer())
-            sys.stdout.flush()
+            self.print_message('Player %s joined your game' % message[1])
+        if req_code == BOARDS:
+            self.print_message('Your Ships\n' + draw_main_board(json.loads(message[1])) +
+                               'Your Shots\n' + draw_tracking_board(json.loads(message[2])))
         if req_code == YOUR_TURN:
+            self.print_message('Your turn!')
             self.player_turn = True
         if req_code == YOUR_HITS:
-            print('Your Hits:')
+            message = 'Your Hits:\n'
             for hit in message[1:]:
-                print(hit)
-            print(self.determine_godlikeness(message[1:]))
+                message += hit + '\n'
+            self.print_message(message)
+            #print(self.determine_godlikeness(message[1:]))
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -76,7 +81,6 @@ class Client(object):
             return 'DOMINATING!'
         if len(hits) > 3:
             return 'GODLIKE!'
-
 
     def message_direct(self, key, body):
         """
@@ -155,7 +159,7 @@ class Client(object):
         return self.message_direct(self.server_key, construct_message([START_GAME, self.user_name, self.current_game]))
     
     def shoot(self, x, y):
-        print('Shooting at %d, %d' % (x, y))
+        print('Shooting at %s, %s' % (x, y))
         return self.message_direct(self.server_key, construct_message([SHOOT, self.user_name, self.current_game, x, y]))
     
     def leave_game(self):
@@ -201,11 +205,12 @@ if __name__ == "__main__":
     while True:
         #user_name = raw_input('Enter user name')
         user_name = 'MMMMM'
-        avail_games = json.loads(client.join_game_server(srv_key, user_name))
+        avail_games = json.loads(client.join_game_server(user_name))
         if not avail_games == NOK:
             break
         else:
-            avail_games = json.loads(client.join_game_server('KKKKKK'))
+            user_name = 'KKKKKK'
+            avail_games = json.loads(client.join_game_server(user_name))
             break
     
     client.user_name = user_name
@@ -220,7 +225,7 @@ if __name__ == "__main__":
              while True:
                  game_id = raw_input("Which game?")
                  if game_id in avail_games:
-                      if client.join_game(srv_key, game_id) == OK:
+                      if client.join_game(game_id) == OK:
                           client.current_game = game_id
                           break
              break
@@ -228,13 +233,17 @@ if __name__ == "__main__":
             board_size = 10#raw_input('Board size?')
             client.create_game(int(board_size))
             client.player_turn = True
+            break
 
     thread.start_new_thread(join_reporter, (client, ))
-    while True:
+    while 1:
         if client.player_turn:
+            print('My turn')
             command = raw_input('>')
+            client.player_turn = False
             parse_command(command)
-
+        sleep(0.2)
+        print('looping')
 
 
 
