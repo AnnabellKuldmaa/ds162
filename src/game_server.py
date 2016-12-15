@@ -3,7 +3,7 @@ import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
     JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT, \
-    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER
+    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, OK, REFRESH_BOARD
 from player import Player
 from game import Game
 
@@ -48,8 +48,16 @@ class GameServer:
         print 'Received request', body
         if body[0] == LIST_GAMES:
             game_list = []
+            query_from_user = body[1]
+            print('query_from_user', query_from_user)
             for game_key, game in self.games.iteritems():
-                if game.can_join:
+                # players_in_game = [player.user_name for player in game.player_list]
+                # print(game_key, players_in_game)
+
+                # if query_from_user in players_in_game:
+                #     print('player already in this game, must be a reconnect')
+                # if game.can_join or query_from_user in players_in_game:
+                if game.can_join_check(query_from_user):
                     game_list.append(game_key)
             response = json.dumps(game_list, ensure_ascii=False)
         elif body[0] == JOIN_SERVER:
@@ -59,7 +67,14 @@ class GameServer:
                 self.online_clients[body[1]] = player
                 response = json.dumps(self.games.keys(), ensure_ascii=False)
             else:
-                response = json.dumps(NOK, ensure_ascii=False)
+                # print('player name exist, but is it reconnect?', body[2])
+                if body[2] == 'True':
+                    print('Player {} is reconnecting'.format(body[1]))
+                    response = json.dumps(OK, ensure_ascii=False)
+                else:
+                    print('Player name {} is taken'.format(body[1]))
+                    # response = json.dumps(self.games.keys(), ensure_ascii=False)
+                    response = json.dumps(NOK, ensure_ascii=False)
         elif body[0] == CREATE_GAME:
             game_exchange, game_name = self.create_game(body[1], body[2])
             response = construct_message([game_exchange, game_name])
@@ -68,6 +83,9 @@ class GameServer:
             response = game_exchange
         elif body[0] == START_GAME:
             self.start_game(body[1], body[2])
+            return
+        elif body[0] == REFRESH_BOARD:
+            self.refresh_boards(body[1])
             return
         elif body[0] == SHOOT:
             self.shoot(body[1], body[2], body[3], body[4])
@@ -90,9 +108,10 @@ class GameServer:
             return
         game = self.games[current_game]
         next_shooter = game.get_next_shooter()
-        self.channel.basic_publish(exchange=game.game_exchange,
-                                   routing_key=next_shooter.user_name,
-                                   body=YOUR_TURN)
+        if type(next_shooter.user_name) == str:
+            self.channel.basic_publish(exchange=game.game_exchange,
+                                       routing_key=next_shooter.user_name,
+                                       body=YOUR_TURN)
         new_owner = game.leave_game(user_name)
         print('new_owner', new_owner)
 
@@ -104,7 +123,7 @@ class GameServer:
         if len(game.player_list) == 1:
             print('Only one player left in game, closing the game.')
             self.channel.basic_publish(exchange=game.game_exchange,
-                           routing_key=new_owner,
+                           routing_key=game.player_list[0].user_name,
                            body=LEAVE_GAME)
             self.remove_game(current_game)
 
@@ -157,9 +176,9 @@ class GameServer:
     def join_game(self, user_name, game_name):
         player = self.online_clients[user_name]
         game = self.games[game_name]
-        print('game.can_join')
-        print(game.can_join)
-        if game.can_join:
+        # print('game.can_join')
+        # print(game.can_join)
+        if game.can_join_check(user_name):
             game_exchange = game.join(player)
             game_owner = game.owner.user_name
             print('Sending login user info to %s' % game_owner)
@@ -193,12 +212,20 @@ class GameServer:
         """
         print('Sending all boards')
         game_exchange = game.game_exchange
+        # print('main board', json.dumps(player.main_board))
+        # if not json.dumps(player.main_board):
+        #     return
         for player in game.player_list:
-            if player.mode != DISCONNECTED:
+            if player.mode != DISCONNECTED and player.main_board:
                 self.channel.basic_publish(exchange=game_exchange,
                                            routing_key=player.user_name,
                                            body=construct_message([BOARDS, json.dumps(player.main_board), \
                                                                    json.dumps(player.tracking_board)]))
+
+    def refresh_boards(self, game_name):
+        game = self.games[game_name]
+        self.send_boards(game)
+
 
     def start_game(self, user_name, game_name):
         """

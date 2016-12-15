@@ -10,7 +10,8 @@ from time import sleep
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
     LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
     NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
-    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, GAME_OVER
+    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, GAME_OVER, \
+    REFRESH_BOARD
 from terminal_print import join_reporter, print_message
 
 
@@ -134,11 +135,15 @@ class Client(object):
         return self.message_direct('LOGIN', LIST_SERVERS)
 
     def get_game_list(self):
-        return self.message_direct(self.server_key, LIST_GAMES)
+        return self.message_direct(self.server_key, construct_message([LIST_GAMES, self.user_name]))
 
-    def join_game_server(self, user_name):
+    def reconnect_game_server(self, user_name):
         self.user_name = user_name
-        return self.message_direct(self.server_key, construct_message([JOIN_SERVER, user_name]))
+        return self.get_game_list()
+
+    def join_game_server(self, user_name, reconnect=False):
+        self.user_name = user_name
+        return self.message_direct(self.server_key, construct_message([JOIN_SERVER, user_name, reconnect]))
 
     def create_game(self, board_size):
         """
@@ -179,6 +184,7 @@ class Client(object):
                                     routing_key=self.user_name)
             self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
             print('Joined to gameserver. Incoming queue registered to %s' % game_exchange)
+            self.message_game(construct_message([REFRESH_BOARD, self.current_game]))
             return OK
         return NOK
 
@@ -191,7 +197,7 @@ class Client(object):
         return self.message_game(construct_message([SHOOT, self.user_name, self.current_game, x, y]))
 
     def leave_game(self):
-        print('Leaving game')
+        print('User {} leaving game {}'.format(self.user_name, self.current_game))
         return self.message_game(construct_message([LEAVE_GAME, self.user_name, self.current_game]))
 
     def remove_user(self, user_name):
@@ -231,7 +237,7 @@ def refresh_available_games(client):
         print game_name
     return avail_games
 
-def waiting_room(client, avail_games):
+def waiting_room(client):
     avail_games = refresh_available_games(client)
     while True:
         hosting = raw_input("Do you want to join a session or host a new session? [J]/[H] ").upper()
@@ -240,6 +246,7 @@ def waiting_room(client, avail_games):
                 avail_games = refresh_available_games(client)
                 game_id = raw_input("Which game? ").upper()
                 # print()
+                # print('join {}, is it in {}'.format(game_id, avail_games))
                 if game_id in avail_games:
                     print('game_id in avail_games')
                     if client.join_game(game_id) == OK:
@@ -271,9 +278,14 @@ if __name__ == "__main__":
             break
 
     while True:
-        # user_name = raw_input('Enter user name: ')
-        user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        avail_games = json.loads(client.join_game_server(user_name))
+        user_name = raw_input('Enter user name: ')
+        # user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        reconnect = False
+        if user_name[0] == '*':
+            reconnect = True
+            user_name = user_name[1:]
+
+        avail_games = json.loads(client.join_game_server(user_name, reconnect))
         if avail_games == NOK:
             print('Username {} taken, please choose a different name.'.format(user_name))
         else:
@@ -282,11 +294,12 @@ if __name__ == "__main__":
     print('Your name:', user_name) 
     client.user_name = user_name
 
-    waiting_room(client, avail_games)
+    waiting_room(client)
 
     thread.start_new_thread(join_reporter, (client,))
     while 1:
         print('client.current_game',client.current_game)
+        print('client.player_turn',client.player_turn)
         if client.player_turn and client.current_game:
             command = raw_input('>')
             parse_command(command, client)
@@ -297,7 +310,7 @@ if __name__ == "__main__":
             parse_command(command, client)
         if not client.current_game:
             avail_games = json.loads(client.get_game_list())
-            waiting_room(client, avail_games)
+            waiting_room(client)
 
             # break
     print('Main loop exited. Closing main thread.')

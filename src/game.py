@@ -35,6 +35,14 @@ class Game:
         self.can_join = True
         self.shooting_player = None
 
+    def can_join_check(self, query_from_user):
+        players_in_game = [player.user_name for player in self.player_list]
+        if query_from_user in players_in_game:
+            print('game: player already in this game, must be a reconnect')
+        if self.can_join or query_from_user in players_in_game:
+            return True
+        return False
+
     def join(self, user):
         """
         @param user_name: adds player to game
@@ -120,6 +128,7 @@ class Game:
         # ships = [[5, 1], [4, 1], [3, 1], [2, 2], [1, 2]]
         # Use less ships for testing
         ships =[[1, 2]]
+        ships =[[1, 1]]
         positioned_ships = []
         for s in ships:
             size = s[0]
