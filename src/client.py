@@ -10,7 +10,7 @@ from time import sleep
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
     LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
     NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
-    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER
+    OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, GAME_OVER
 from terminal_print import join_reporter, print_message
 
 
@@ -84,6 +84,8 @@ class Client(object):
             print('Leaving game {}.'.format(self.current_game))
             self.leave_game()
             self.current_game = None
+        if req_code == GAME_OVER:
+            print('Game over, {} won.'.format(message[1]))
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -216,6 +218,8 @@ def parse_command(command, client):
         client.current_game = None
     elif cmd_code == 'remove':
         client.remove_user(cmd[1])
+    elif cmd_code == 'restart':
+        client.start_game()
     else:
         print('UNKNOWN COMMAND!')
     return
@@ -282,10 +286,15 @@ if __name__ == "__main__":
 
     thread.start_new_thread(join_reporter, (client,))
     while 1:
+        print('client.current_game',client.current_game)
         if client.player_turn and client.current_game:
             command = raw_input('>')
             parse_command(command, client)
         sleep(0.2)
+        if not client.player_turn and client.current_game:
+            # print('Game over! You can leave, or game owner can restart the game.')
+            command = raw_input('>')
+            parse_command(command, client)
         if not client.current_game:
             avail_games = json.loads(client.get_game_list())
             waiting_room(client, avail_games)

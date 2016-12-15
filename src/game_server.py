@@ -86,6 +86,8 @@ class GameServer:
             ch.basic_ack(delivery_tag=method.delivery_tag)
 
     def leave_game(self, user_name, current_game):
+        if not self.games.has_key(current_game):
+            return
         game = self.games[current_game]
         next_shooter = game.get_next_shooter()
         self.channel.basic_publish(exchange=game.game_exchange,
@@ -99,14 +101,12 @@ class GameServer:
                            routing_key=new_owner,
                            body=NEW_OWNER)
 
-        if len(game.player_list) < 2:
-            print('ALL ALONE')
-            print('self.games', self.games)
-            self.remove_game(current_game)
-            print('self.games', self.games)
+        if len(game.player_list) == 1:
+            print('Only one player left in game, closing the game.')
             self.channel.basic_publish(exchange=game.game_exchange,
                            routing_key=new_owner,
                            body=LEAVE_GAME)
+            self.remove_game(current_game)
 
 
     def notify_login_server(self):
@@ -177,14 +177,15 @@ class GameServer:
         :param game: game object
         :param message: the message list
         """
-        print('Sending all boards')
+        print('Notify all in game {} with msg: {}'.format(game, message))
         game_exchange = game.game_exchange
         for player in game.player_list:
+            print('notifying player', player)
             if player.mode != DISCONNECTED:
+                print('player not disconnected')
                 self.channel.basic_publish(exchange=game_exchange,
                                            routing_key=player.user_name,
                                            body=construct_message(message))
-                # message example 
 
     def send_boards(self, game):
         """
@@ -271,9 +272,12 @@ class GameServer:
                 # Notify all users that game is over
                 else:
                     # TODO: probably need to so something more
-                    self.channel.basic_publish(exchange=game.spec_exchange,
-                                               routing_key='placeholder',
-                                               body=construct_message([GAME_OVER, game.get_winner()]))
+                    print('game_server GAME OVER CHECK')
+                    self.notify_all(game, [GAME_OVER, game.get_winner()])
+
+                    # self.channel.basic_publish(exchange=game.spec_exchange,
+                    #                            routing_key='placeholder',
+                    #                            body=construct_message([GAME_OVER, game.get_winner()]))
             else:
                 # TODO: probably need to so something more
                 self.channel.basic_publish(exchange=game.spec_exchange,

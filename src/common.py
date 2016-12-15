@@ -61,7 +61,7 @@ def draw_main_board(board):
             elif board[y][x] == SHIP_NOT_SHOT:
                 temp.append('#')
             elif board[y][x] == SHIP_SHOT:
-                temp.append('#')
+                temp.append('*')
             elif board[y][x] == NO_SHIP_SHOT:
                 temp.append('.')
         printed_board += "  ".join(temp) + '\n'
