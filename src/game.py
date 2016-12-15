@@ -49,7 +49,8 @@ class Game:
         @return exchange
         @TODO: must notify owner players
         """
-        self.player_list.append(user)
+        if user not in self.player_list:
+            self.player_list.append(user)
         return self.game_exchange
 
     def create_all_boards(self):
@@ -127,8 +128,7 @@ class Game:
             board.append([NO_SHIP] * self.board_size)
         # ships = [[5, 1], [4, 1], [3, 1], [2, 2], [1, 2]]
         # Use less ships for testing
-        ships =[[1, 2]]
-        ships =[[1, 1]]
+        ships =[[1, 2], [1, 1]]
         positioned_ships = []
         for s in ships:
             size = s[0]

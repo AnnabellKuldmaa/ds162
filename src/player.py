@@ -14,6 +14,7 @@ class Player():
         self.is_owner = owner
         self.user_name = user_name
         self.ships = []
+        self.disconnect_time = None
         
     def all_ships_sunk(self):
         """

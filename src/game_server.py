@@ -3,8 +3,11 @@ import uuid
 import json
 from common import construct_message, decode_message, LIST_GAMES, UNKNOWN_REQUEST, CREATE_GAME, JOIN_SERVER, \
     JOIN_GAME, SERVER_ONLINE, USER_JOINED, START_GAME, NOK, DISCONNECTED, YOUR_TURN, BOARDS, YOUR_HITS, HIT, \
-    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, OK, REFRESH_BOARD
+    SESSION_END, GAME_OVER, SHOOT, LEAVE_GAME, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, OK, REFRESH_BOARD, YOU_DEAD, \
+    SPECTATOR_ANNOUNCEMENT, SPECTATOR, ONLINE
 from player import Player
+import time
+import thread
 from game import Game
 
 
@@ -36,7 +39,7 @@ class GameServer:
 
         # self.channel.basic_qos(prefetch_count=1)
         self.channel.basic_consume(self.on_request, queue=self.incoming_queue)  # listener on incoming message queue
-        self.channel.start_consuming()
+        # self.channel.start_consuming()
 
     def on_response(self, ch, method, props, body):
         if self.corr_id == props.correlation_id:
@@ -80,7 +83,10 @@ class GameServer:
             response = construct_message([game_exchange, game_name])
         elif body[0] == JOIN_GAME:
             game_exchange = self.join_game(body[1], body[2])
-            response = game_exchange
+            game = self.games[body[2]]
+            current_player = game.shooting_player.user_name if game.shooting_player else 'Unknown'
+
+            response = construct_message([game_exchange, current_player])
         elif body[0] == START_GAME:
             self.start_game(body[1], body[2])
             return
@@ -153,6 +159,7 @@ class GameServer:
         owner = self.online_clients[owner]
         spec_exchange, game_exchange = self.create_game_exchanges(game_name)
         game = Game(owner, int(size), spec_exchange, game_exchange)
+        print(game.owner)
         game_name = 'GAME_%d' % gamenr
         self.games[game_name] = game
         return game_exchange, game_name
@@ -205,6 +212,9 @@ class GameServer:
                 self.channel.basic_publish(exchange=game_exchange,
                                            routing_key=player.user_name,
                                            body=construct_message(message))
+                self.channel.basic_publish(exchange=game.spec_exchange,
+                                           routing_key='placeholder',
+                                           body=construct_message(message))
 
     def send_boards(self, game):
         """
@@ -226,7 +236,6 @@ class GameServer:
         game = self.games[game_name]
         self.send_boards(game)
 
-
     def start_game(self, user_name, game_name):
         """
         Starts game: creates boards, sends them to all players, sets owner as first shooter, others cannot join
@@ -236,6 +245,9 @@ class GameServer:
         player = self.online_clients[user_name]
         game = self.games[game_name]
         game_exchange = game.game_exchange
+
+        for player in self.online_clients.values():
+            player.mode = ONLINE
 
         # Only owner can start game
         if game.owner.user_name == user_name:
@@ -249,6 +261,23 @@ class GameServer:
             self.channel.basic_publish(exchange=game_exchange,
                                        routing_key=player.user_name,
                                        body=YOUR_TURN)
+
+    def notify_spectators(self, game, shooter, hits):
+        response = ''
+        print('notify spec: hits, ', hits)
+        print('notify spec: shooter, ', shooter)
+        print('notify spec:game, ', game)
+
+
+        for hit in hits:
+            response += '%s hit %s\n' % (shooter, hit)
+        for player in game.player_list:
+            response += "%s's board:\n %s\n\n" %(player.user_name, json.dumps(player.main_board))
+
+
+        self.channel.basic_publish(exchange=game.spec_exchange,
+                                   routing_key='placeholder',
+                                   body=construct_message([SPECTATOR_ANNOUNCEMENT, response]))
 
     def shoot(self, user_name, game_name, x, y):
         """
@@ -272,22 +301,30 @@ class GameServer:
                                        body=construct_message([YOUR_HITS, json.dumps(hits)]))
             # Notify users that shooter hit them. Don't loop if hits is None
             if hits:
+                print('hits', hits)
                 for user in hits:
                     self.channel.basic_publish(exchange=game_exchange,
                                                routing_key=user,
                                                body=construct_message([HIT, user_name]))
+                print('shoot: notify spectators')
+                self.notify_spectators(game, user_name, hits)
+            else:
+                self.channel.basic_publish(exchange=game.spec_exchange,
+                                   routing_key='placeholder',
+                                   body=construct_message([SPECTATOR_ANNOUNCEMENT, '{} shot but missed!'.format(user_name)]))
             if sunk_ships:
                 print('some sunk ships')
                 for ship in sunk_ships:
                     ship_owner = ship[1].user_name
                     self.notify_all(game, [SHIP_SUNK_ANNOUNCEMENT, user_name, ship_owner])
-
-                # for ship in sunk_ships:
-                #     print('sunk ship', ship)
-                #     ship_owner = ship[1]
-                #     self.channel.basic_publish(exchange=game.spec_exchange,
-                #                                routing_key='placeholder',
-                #                                body=construct_message([SHIP_SUNK_ANNOUNCEMENT, ship_owner]))
+                    print(self.online_clients[ship_owner].all_ships_sunk())
+                    print(self.online_clients[ship_owner])
+                    print(self.online_clients)
+                    if self.online_clients[ship_owner].all_ships_sunk():
+                        self.online_clients[ship_owner].mode = SPECTATOR
+                        self.channel.basic_publish(exchange=game_exchange,
+                                                    routing_key=ship_owner,
+                                                    body=construct_message([YOU_DEAD, game.spec_exchange]))
 
             if not game.end_session():
                 # Notify next shooter
@@ -302,9 +339,8 @@ class GameServer:
                     print('game_server GAME OVER CHECK')
                     self.notify_all(game, [GAME_OVER, game.get_winner()])
 
-                    # self.channel.basic_publish(exchange=game.spec_exchange,
-                    #                            routing_key='placeholder',
-                    #                            body=construct_message([GAME_OVER, game.get_winner()]))
+
+
             else:
                 # TODO: probably need to so something more
                 self.channel.basic_publish(exchange=game.spec_exchange,
@@ -314,3 +350,4 @@ class GameServer:
 
 if __name__ == "__main__":
     game_server = GameServer()
+    game_server.channel.start_consuming()

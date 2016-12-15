@@ -7,11 +7,14 @@ import sys
 import readline
 import string, random
 from time import sleep
+
+from IPython.lib.display import YouTubeVideo
+
 from common import construct_message, decode_message, draw_main_board, draw_tracking_board, \
     LIST_SERVERS, LIST_GAMES, JOIN_SERVER, CREATE_GAME, JOIN_GAME, SHOOT, LEAVE_GAME, REMOVE_USER, \
     NO_SHIP, SHIP_NOT_SHOT, SHIP_SHOT, NO_SHIP_SHOT, NOT_SHOT, SHIP_SUNK, USER_JOINED, START_GAME, \
     OK, NOK, YOUR_TURN, YOUR_HITS, BOARDS, HIT, SHIP_SUNK_ANNOUNCEMENT, NEW_OWNER, GAME_OVER, \
-    REFRESH_BOARD
+    REFRESH_BOARD, YOU_DEAD, SPECTATOR_ANNOUNCEMENT, SPECTATOR, ONLINE
 from terminal_print import join_reporter, print_message
 
 
@@ -32,10 +35,14 @@ class Client(object):
 
         self.channel.basic_consume(self.on_info, no_ack=True,
                                    queue=self.incoming_queue)  # listener on incoming message queue
+        self.current_exchange = None
+        self.prev_exchange = None
         self.user_name = None
         self.current_game = None
         self.server_key = None
         self.player_turn = False
+        self.mode = None
+        self.reconnect = False
 
     def on_response(self, ch, method, props, body):
         """
@@ -48,7 +55,7 @@ class Client(object):
         """
         if self.corr_id == props.correlation_id:
             self.response = body
-            print('Response received', body)
+            #print('Response received', body)
 
     def on_info(self, ch, method, props, body):
         """
@@ -56,7 +63,7 @@ class Client(object):
         """
         message = decode_message(body)
         req_code = message[0]
-        # print('RECEIVED: ', req_code)
+        # print('RECEIVED CODE: ', message)
         if req_code == USER_JOINED:
             print_message('Player %s joined your game' % message[1])
         if req_code == BOARDS:
@@ -87,6 +94,21 @@ class Client(object):
             self.current_game = None
         if req_code == GAME_OVER:
             print('Game over, {} won.'.format(message[1]))
+            if self.mode == SPECTATOR:
+                self.channel.queue_unbind(exchange=self.current_exchange,
+                                        queue=self.incoming_queue,
+                                        routing_key=self.user_name)
+                self.current_exchange = self.prev_exchange
+                self.channel.queue_bind(exchange=self.prev_exchange,
+                                        queue=self.incoming_queue,
+                                        routing_key=self.user_name)
+                self.mode == ONLINE
+        if req_code == YOU_DEAD:
+            self.start_spec_mode(message[1])
+            print('You dead!\nEntering spectator mode..')
+        if req_code == SPECTATOR_ANNOUNCEMENT:
+            print(message[1])
+
 
     def determine_godlikeness(self, hits):
         if len(hits) == 2:
@@ -107,7 +129,7 @@ class Client(object):
         """
         self.response = None
         self.corr_id = str(uuid.uuid4())
-        print('Sending message to', key)
+        # print('Sending message %s to' % body, key)
         self.channel.basic_publish(exchange='main_exch',
                                    routing_key=key,
                                    properties=pika.BasicProperties(
@@ -125,7 +147,7 @@ class Client(object):
         :param body: message you want to send
         :return: Nothing
         """
-        print('Sending message to', self.server_key)
+        # print('Sending message %s ' % body)
         self.channel.basic_publish(exchange='main_exch',
                                    routing_key=self.server_key,
                                    body=body)
@@ -137,9 +159,6 @@ class Client(object):
     def get_game_list(self):
         return self.message_direct(self.server_key, construct_message([LIST_GAMES, self.user_name]))
 
-    def reconnect_game_server(self, user_name):
-        self.user_name = user_name
-        return self.get_game_list()
 
     def join_game_server(self, user_name, reconnect=False):
         self.user_name = user_name
@@ -156,14 +175,26 @@ class Client(object):
         response = self.message_direct(self.server_key, construct_message([CREATE_GAME, self.user_name, board_size]))
         response = decode_message(response)
         game_exchange = response[0]
+        self.current_exchange = game_exchange
         game_id = response[1]
-        print(game_exchange)
+        # print(game_exchange)
         self.current_game = game_id
         self.channel.queue_bind(exchange=game_exchange,
                                 queue=self.incoming_queue,
                                 routing_key=self.user_name)
         self.channel.basic_consume(self.on_info, queue=self.incoming_queue)
         print('Joined to a game. Incoming queue registered to game exchange.')
+
+    def start_spec_mode(self, spec_exchange):
+        self.mode = SPECTATOR
+        self.prev_exchange = self.current_exchange
+        self.channel.queue_unbind(exchange=self.current_exchange,
+                                    queue=self.incoming_queue,
+                                    routing_key=self.user_name)
+        self.current_exchange = spec_exchange
+        self.channel.queue_bind(exchange=spec_exchange,
+                                queue=self.incoming_queue,
+                                routing_key=self.user_name)
 
     def join_game(self, game_id):
         """
@@ -172,12 +203,16 @@ class Client(object):
         :param game_id: Game name to connect to
         :return:
         """
-        response = self.message_direct(self.server_key, construct_message([JOIN_GAME, self.user_name, game_id]))
+        response = self.message_direct(self.server_key, construct_message([JOIN_GAME, self.user_name, game_id, self.reconnect]))
         response = decode_message(response)
-        print('join_game response', response)
+        # print('join_game response', response)
         if response[0] != NOK:
             game_exchange = response[0]
-            print(game_exchange)
+            # print(response[1])
+            if response[1] == self.user_name:
+                self.player_turn = True
+            # print(game_exchange)
+            self.current_exchange = game_exchange
             self.current_game = game_id
             self.channel.queue_bind(exchange=game_exchange,
                                     queue=self.incoming_queue,
@@ -254,7 +289,7 @@ def waiting_room(client):
                         break
             break
         if hosting == 'H':
-            board_size = 10  # raw_input('Board size?')
+            board_size = raw_input('Board size?')
             client.create_game(int(board_size))
             client.player_turn = True
             break
@@ -270,8 +305,8 @@ if __name__ == "__main__":
         print('{}\t{}'.format(server, r_key))
 
     while True:
-        # srv = raw_input("Which server to join?")
-        srv = 'Server1'
+        srv = raw_input("Which server to join?")
+        #srv = 'Server1'
         srv_key = response[srv]
         client.server_key = srv_key
         if srv_key is not None:
@@ -279,26 +314,26 @@ if __name__ == "__main__":
 
     while True:
         user_name = raw_input('Enter user name: ')
+        #user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
         if not user_name:
             continue
-        # user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
-        reconnect = False
+        client.reconnect = False
         if user_name[0] == '*':
-            reconnect = True
+            client.reconnect = True
             user_name = user_name[1:]
 
-        avail_games = json.loads(client.join_game_server(user_name, reconnect))
+        avail_games = json.loads(client.join_game_server(user_name, client.reconnect))
         if avail_games == NOK:
             print('Username {} taken, please choose a different name.'.format(user_name))
         else:
             break
     
-    print('Your name:', user_name) 
+    #print('Your name:', user_name)
     client.user_name = user_name
 
+    thread.start_new_thread(join_reporter, (client,))
     waiting_room(client)
 
-    thread.start_new_thread(join_reporter, (client,))
     while 1:
         # print('client.current_game',client.current_game)
         # print('client.player_turn',client.player_turn)
@@ -306,8 +341,11 @@ if __name__ == "__main__":
             command = raw_input('>')
             parse_command(command, client)
         sleep(0.2)
+        if client.mode == SPECTATOR:
+            print('You dead! You can leave, or game owner can restart the game.')
+            command = raw_input('>')
+            parse_command(command, client)
         if not client.player_turn and client.current_game:
-            # print('Game over! You can leave, or game owner can restart the game.')
             command = raw_input('>')
             parse_command(command, client)
         if not client.current_game:

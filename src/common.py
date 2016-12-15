@@ -24,40 +24,45 @@ SHIP_SUNK_ANNOUNCEMENT = '20'
 NEW_OWNER = '21'
 WELCOME_BACK = '22'
 REFRESH_BOARD = '23'
+YOU_DEAD = '24'
+SPECTATOR_ANNOUNCEMENT = '25'
 
-#values for main board
+# values for main board
 NO_SHIP = 0
 SHIP_NOT_SHOT = 1
 SHIP_SHOT = 2
 NO_SHIP_SHOT = 3
 
-#extra value for tracking board plus SHIP_SHOT, NO_SHIP_SHOT
+# extra value for tracking board plus SHIP_SHOT, NO_SHIP_SHOT
 NOT_SHOT = 4
 SHIP_SUNK = 5
 
-#values for mode
+# values for mode
 ONLINE = 'online'
 SPECTATOR = 'spectator'
 DISCONNECTED = 'disconnected'
 
+
 def construct_message(args):
-	return MSG_SEP.join(map(str,args))
+    return MSG_SEP.join(map(str, args))
+
 
 def decode_message(message):
-	return message.split(MSG_SEP)
+    return message.split(MSG_SEP)
+
 
 def draw_main_board(board):
     size = len(board)
     printed_board = ''
     temp = []
     temp.append("\\")
-    for e in range(0,size):
+    for e in range(0, size):
         temp.append(str(e))
     printed_board += "  ".join(temp) + '\n'
-    for y in range(0,size):
+    for y in range(0, size):
         temp = []
         temp.insert(0, str(y))
-        for x in range(0,size):
+        for x in range(0, size):
             if board[y][x] == NO_SHIP:
                 temp.append('.')
             elif board[y][x] == SHIP_NOT_SHOT:
@@ -68,6 +73,7 @@ def draw_main_board(board):
                 temp.append('.')
         printed_board += "  ".join(temp) + '\n'
     return printed_board
+
 
 def draw_tracking_board(board):
     size = len(board)
