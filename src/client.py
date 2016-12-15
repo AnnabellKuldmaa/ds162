@@ -56,7 +56,7 @@ class Client(object):
         """
         message = decode_message(body)
         req_code = message[0]
-        print('RECEIVED: ', req_code)
+        # print('RECEIVED: ', req_code)
         if req_code == USER_JOINED:
             print_message('Player %s joined your game' % message[1])
         if req_code == BOARDS:
@@ -279,6 +279,8 @@ if __name__ == "__main__":
 
     while True:
         user_name = raw_input('Enter user name: ')
+        if not user_name:
+            continue
         # user_name = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
         reconnect = False
         if user_name[0] == '*':
@@ -298,8 +300,8 @@ if __name__ == "__main__":
 
     thread.start_new_thread(join_reporter, (client,))
     while 1:
-        print('client.current_game',client.current_game)
-        print('client.player_turn',client.player_turn)
+        # print('client.current_game',client.current_game)
+        # print('client.player_turn',client.player_turn)
         if client.player_turn and client.current_game:
             command = raw_input('>')
             parse_command(command, client)
