@@ -1,3 +1,4 @@
+MARKUS3 - Multiplayer Battleship Game
+Annabell Kuldmaa, Robert Roosalu, Markus Lippus, Heikki Saul
 
-
-# MARKUS3 does is a terminal application
+Please refer to user manual (MARKUS3 user manual.pdf) for details on running the application.
